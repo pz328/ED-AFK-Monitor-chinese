@@ -8,6 +8,7 @@ WIP
 - Monitor now waits for first game load before completing startup
 - Option 'ThreadCmdrNames' for commander name in thread titles (@Conshmea #12)
 - Argument '--setfile' to load specific journal file (@Conshmea #13)
+- Commander name and loaded config profile added to startup info
 
 v250904
 -------

@@ -727,13 +727,6 @@ def summary(stats, logtime=None, session=True):
             logevent(msg_term=f"{type} merits: {stats.merits:,} ({merits_hour:,}/hr | {avgmerits:,}/kill)",
                     emoji="📝", timestamp=logtime, loglevel=getloglevel("SummaryMerits"))
 
-def header():
-    # Print header
-    print(f"{Col.YELL}Journal folder:{Col.END} {journal_dir}")
-    print(f"{Col.YELL}Latest journal:{Col.END} {journal_file}")
-    if profile: print(f"{Col.YELL}Config profile:{Col.END} {profile}")
-    print("\nStarting... (Press Ctrl+C to stop)\n")
-
 if __name__ == "__main__":
     try:
         # Journal preloading
