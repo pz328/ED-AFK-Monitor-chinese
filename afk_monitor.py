@@ -126,7 +126,7 @@ def debug(message):
 debug(f"Arguments: {args}")
 debug(f"Config: {config}")
 
-class Instance:
+class Stats:
     def __init__(self):
         self.reset()
 
@@ -150,10 +150,6 @@ class Tracking:
         self.warnednokills = None
         self.warnedkillrate = None
         self.fuelcapacity = 64
-        self.totalkills = 0
-        self.totaltime = 0
-        self.totalbounties = 0
-        self.totalmerits = 0
         self.killtype = "bounties"
         self.fighterhull = 0
         self.logged = 0
@@ -189,7 +185,8 @@ class Tracking:
             self.deploytime = None
             updatetitle(True)
 
-session = Instance()
+session = Stats()
+total = Stats()
 track = Tracking()
 
 # Set journal directory
@@ -452,7 +449,7 @@ def processevent(line):
                 track.sessionstart()
                 session.scans.clear()
                 session.kills +=1
-                track.totalkills +=1
+                total.kills +=1
                 thiskill = logtime
                 killtime = ""
                 track.lastcheck = time.monotonic()
@@ -464,7 +461,7 @@ def processevent(line):
                     session.killstime += seconds
                     if len(session.killsrecent) == KILLS_RECENT: session.killsrecent.pop(0)
                     session.killsrecent.append(seconds)
-                    track.totaltime += seconds
+                    total.killstime += seconds
                 session.lastkill = logtime
 
                 hard = ""
@@ -486,7 +483,7 @@ def processevent(line):
                     track.killtype = "bonds"
 
                 session.bounties += bountyvalue
-                track.totalbounties += bountyvalue
+                total.bounties += bountyvalue
                 kills_t = f" x{session.kills}" if setting_extendedstats else ""
                 kills_d = f"x{session.kills} " if setting_extendedstats else ""
                 bountyvalue = f" [{num_format(bountyvalue)} cr]" if setting_bountyvalue else ""
@@ -497,28 +494,11 @@ def processevent(line):
                         msg_discord=f"{kills_d}**{ship}{hard}{killtime}**{bountyvalue}{bountyfaction}",
                         emoji="💥", timestamp=logtime, loglevel=log)
                 
+                updatetitle()
+                
                 # Output stats every 10 kills
                 if session.kills % 10 == 0:
-                    avgseconds = session.killstime / (session.kills - 1)
-                    kills_hour = perhour(avgseconds, 1)
-                    avgbounty = session.bounties // session.kills
-                    bounties_hour = perhour(session.killstime / session.bounties)
-                    if setting_extendedstats and session.kills > KILLS_RECENT:
-                        avgsecondsrecent = sum(session.killsrecent) / (KILLS_RECENT)
-                        kills_hour_recent = f" [Last {KILLS_RECENT}: {perhour(avgsecondsrecent, 1)}/hr]"
-                    else:
-                        kills_hour_recent = ""
-                    logevent(msg_term=f"Session kills: {session.kills:,} ({kills_hour}/hr | {time_format(avgseconds)}/kill){kills_hour_recent}",
-                              msg_discord=f"**Session kills: {session.kills:,} ({kills_hour}/hr | {time_format(avgseconds)}/kill)**{kills_hour_recent}",
-                            emoji="📝", timestamp=logtime, loglevel=getloglevel("SummaryKills"))
-                    logevent(msg_term=f"Session {track.killtype}: {num_format(session.bounties)} ({num_format(bounties_hour)}/hr | {num_format(avgbounty)}/kill)",
-                            emoji="📝", timestamp=logtime, loglevel=getloglevel("SummaryBounties"))
-                    if session.merits > 0:
-                        avgmerits = session.merits // session.kills
-                        merits_hour = perhour(session.killstime / session.merits) if session.merits > 0 else 0
-                        logevent(msg_term=f"Session merits: {session.merits:,} ({merits_hour:,}/hr | {avgmerits:,}/kill)",
-                                emoji="📝", timestamp=logtime, loglevel=getloglevel("SummaryMerits"))
-                updatetitle()
+                    summary(session, logtime=logtime)
             case "MissionRedirected" if "Mission_Massacre" in j["Name"]:
                 track.missionredirects += 1
                 msg = "a mission"
@@ -656,7 +636,7 @@ def processevent(line):
             case "PowerplayMerits":
                 if session.meritstoreport > 0 and j["MeritsGained"] < 500:
                     session.merits += j["MeritsGained"]
-                    track.totalmerits += j["MeritsGained"]
+                    total.merits += j["MeritsGained"]
                     logevent(msg_term=f"Merits: +{j["MeritsGained"]} ({j["Power"]})",
                              emoji="🎫", timestamp=logtime, loglevel=getloglevel("Merits"))
                     session.meritstoreport -= 1
@@ -721,24 +701,31 @@ def updatetitle(reset=False):
             ctypes.windll.kernel32.SetConsoleTitleW(f"ED AFK Monitor v{VERSION}")
             debug("Title update")
 
-def shutdown():
-    if track.totalkills > 1:
-        avgseconds = track.totaltime / (track.totalkills - 1)
+# Output stats for kills, bounties and merits
+def summary(stats, logtime=None, session=True):
+    if stats.kills > 1:
+        type = "Session" if session else "Total"
+        avgseconds = stats.killstime / (stats.kills - 1)
         kills_hour = perhour(avgseconds, 1)
-        avgbounty = track.totalbounties // track.totalkills
-        bounties_hour = perhour(track.totaltime / track.totalbounties)
-        logevent(msg_term=f"Total kills: {track.totalkills:,} ({kills_hour}/hr | {time_format(avgseconds)}/kill)",
-                emoji="📝", loglevel=getloglevel("SummaryKills"))
-        logevent(msg_term=f"Total {track.killtype}: {num_format(track.totalbounties)} ({num_format(bounties_hour)}/hr | {num_format(avgbounty)}/kill)",
-                emoji="📝", loglevel=getloglevel("SummaryBounties"))
-        if track.totalmerits > 0:
-            avgmerits = track.totalmerits // track.totalkills
-            merits_hour = perhour(track.totaltime / track.totalmerits) if track.totalmerits > 0 else 0
-            logevent(msg_term=f"Total merits: {track.totalmerits:,} ({merits_hour:,}/hr | {avgmerits:,}/kill)",
-                    emoji="📝", loglevel=getloglevel("SummaryMerits"))
-    logevent(msg_term=f"Monitor stopped ({journal_file})",
-            msg_discord=f"**Monitor stopped** ({journal_file})",
-            emoji="📕", loglevel=2)
+        avgbounty = stats.bounties // stats.kills
+        bounties_hour = perhour(stats.killstime / stats.bounties)
+        
+        kills_hour_recent = ""
+        if session and setting_extendedstats and stats.kills > KILLS_RECENT:
+            avgsecondsrecent = sum(stats.killsrecent) / (KILLS_RECENT)
+            kills_hour_recent = f" [x{KILLS_RECENT}: {perhour(avgsecondsrecent, 1)}/hr]"
+        
+        logevent(msg_term=f"{type} kills: {stats.kills:,} ({kills_hour}/hr | {time_format(avgseconds)}/kill){kills_hour_recent}",
+                emoji="📝", timestamp=logtime, loglevel=getloglevel("SummaryKills"))
+        
+        logevent(msg_term=f"{type} {track.killtype}: {num_format(stats.bounties)} ({num_format(bounties_hour)}/hr | {num_format(avgbounty)}/kill)",
+                emoji="📝", timestamp=logtime, loglevel=getloglevel("SummaryBounties"))
+        
+        if stats.merits > 0:
+            avgmerits = round(stats.merits / stats.kills, 1)
+            merits_hour = perhour(stats.killstime / stats.merits) if stats.merits > 0 else 0
+            logevent(msg_term=f"{type} merits: {stats.merits:,} ({merits_hour:,}/hr | {avgmerits:,}/kill)",
+                    emoji="📝", timestamp=logtime, loglevel=getloglevel("SummaryMerits"))
 
 def header():
     # Print header
@@ -845,7 +832,10 @@ if __name__ == "__main__":
                 track.lines += 1
 
     except (KeyboardInterrupt, SystemExit):
-        shutdown()
+        summary(total, session=False)
+        logevent(msg_term=f"Monitor stopped ({journal_file})",
+        msg_discord=f"**Monitor stopped** ({journal_file})",
+        emoji="📕", loglevel=2)
         debug(f"\nTrack: {track.__dict__}")
         if sys.argv[0].count("\\") > 1:
             input("\nPress ENTER to exit")	# This is *still* horrible
