@@ -167,6 +167,8 @@ class Tracking:
         self.cmdrship = None
         self.cmdrcombatrank = None
         self.cmdrcombatprogress = None
+        self.cmdrgamemode = None
+        self.cmdrlocation = None
         self.lastcheck = None
     
     def sessionstart(self, reset=False):
@@ -367,7 +369,8 @@ def discordsend(message=""):
         print(f"{Col.WHITE}DISCORD:{Col.END} {message}")
 
 # Log events
-def logevent(msg_term, msg_discord=None, emoji="", timestamp=None, loglevel=2, event=None):
+def logevent(msg_term, msg_discord=None, emoji=None, timestamp=None, loglevel=2, event=None):
+    emoji = f"{emoji} " if emoji else ""
     loglevel = int(loglevel)
     if track.preloading and not discord_test:
         loglevel = 1 if loglevel > 0 else 0
@@ -376,7 +379,8 @@ def logevent(msg_term, msg_discord=None, emoji="", timestamp=None, loglevel=2, e
     else:
         logtime = datetime.now(timezone.utc) if setting_utc else datetime.now()
     logtime = datetime.strftime(logtime, "%H:%M:%S")
-    if loglevel > 0 and not discord_test: print(f"[{logtime}]{emoji} {msg_term}")
+    if loglevel > 0 and not discord_test:
+        print(f"[{logtime}]{emoji}{msg_term}")
     track.logged +=1
     if discord_enabled and loglevel > 1:
         if event is not None and track.dupeevent == event:
@@ -389,7 +393,7 @@ def logevent(msg_term, msg_discord=None, emoji="", timestamp=None, loglevel=2, e
         ping = f" <@{discord_user}>" if loglevel > 2 and track.duperepeats == 1 else ""
         logtime = f" {{{logtime}}}" if discord_timestamp else ""
         if track.duperepeats <= DUPE_MAX:
-            discordsend(f"{emoji} {discord_message}{logtime}{ping}")
+            discordsend(f"{emoji}{discord_message}{logtime}{ping}")
         elif not track.dupewarn:
             discordsend(f"⏸️ **Suppressing further duplicate messages**{logtime}")
             track.dupewarn = True
@@ -403,6 +407,7 @@ def getloglevel(key=None) -> int:
         print(f"{Col.WHITE}Warning:{Col.END} '{key}' not found in 'LogLevels' (using default of {level})")
         return level
 
+# Calculate somethings per hour
 def perhour(seconds=0, precision=None):
     if seconds > 0:
         return round(3600 / seconds, precision)
@@ -579,13 +584,19 @@ def processevent(line):
                 logevent(msg_term="Exited to main menu",
                     emoji="🚪", timestamp=logtime, loglevel=2)
             case "LoadGame":
-                ship = j["Ship"] if "Ship_Localised" not in j else j["Ship_Localised"]
-                mode = "Private" if j["GameMode"] == "Group" else j["GameMode"]
-                combatrank = f" / {COMBAT_RANKS[track.cmdrcombatrank]}" if track.cmdrcombatrank is not None else ""
-                combatrank += f" +{track.cmdrcombatprogress}%" if track.cmdrcombatprogress is not None and track.cmdrcombatrank < 13 else ""
-                logevent(msg_term=f"Loaded CMDR {j["Commander"]} ({ship} / {mode}{combatrank})",
-                        msg_discord=f"**Loaded CMDR {j["Commander"]}** ({ship} / {mode}{combatrank})",
-                        emoji="🔄", timestamp=logtime, loglevel=2)
+                if "Ship_Localised" in j:
+                    track.cmdrship = j["Ship_Localised"]
+                elif "Ship" in j:
+                    track.cmdrship = j["Ship"]
+
+                if "GameMode" in j:
+                    track.cmdrgamemode = "Private Group" if j["GameMode"] == "Group" else j["GameMode"]
+
+                cmdrinfo =  f"{track.cmdrship} / {track.cmdrgamemode} / {track.cmdrcombatrank} +{track.cmdrcombatprogress}%"
+                
+                logevent(msg_term=f"CMDR {track.cmdrname} ({cmdrinfo})",
+                         msg_discord=f"**CMDR {track.cmdrname}** ({cmdrinfo})",
+                         emoji="🔄", timestamp=logtime, loglevel=2)
             case "Loadout":
                 track.fuelcapacity = j["FuelCapacity"]["Main"] if j["FuelCapacity"]["Main"] >= 2 else 64
                 #debug(f"Fuel capacity: {track.fuelcapacity}")
@@ -611,7 +622,7 @@ def processevent(line):
                         msg_discord=f"**Cargo stolen!** ({name})",
                         emoji="📦", timestamp=logtime, loglevel=getloglevel("CargoLost"), event="CargoLost")
             case "Rank":
-                track.cmdrcombatrank = j["Combat"]
+                track.cmdrcombatrank = COMBAT_RANKS[j["Combat"]]
             case "Progress":
                 track.cmdrcombatprogress = j["Combat"]
             case "Missions" if "Active" in j and not track.missions:
@@ -640,9 +651,15 @@ def processevent(line):
                     logevent(msg_term=f"Merits: +{j["MeritsGained"]} ({j["Power"]})",
                              emoji="🎫", timestamp=logtime, loglevel=getloglevel("Merits"))
                     session.meritstoreport -= 1
-            case "Location" if j["BodyType"] == "PlanetaryRing":
-                track.sessionstart()
-                debug(f"Deploy time by location (planetary ring) {track.deploytime}")
+            case "Location":
+                #track.cmdrlocation = j["StarSystem"]
+                if j["BodyType"] == "PlanetaryRing":
+                    track.sessionstart()
+                    #debug(f"Deploy time by location (planetary ring) {track.deploytime}")
+            case "ShipyardSwap":
+                track.cmdrship = j["ShipType"].title() if "ShipType_Localised" not in j else j["ShipType_Localised"]
+                logevent(msg_term=f"Swapped ship to {track.cmdrship}",
+                        emoji="🚢", timestamp=logtime, loglevel=2)
             case "Shutdown":
                 logevent(msg_term="Quit to desktop",
                         emoji="🛑", timestamp=logtime, loglevel=2)
@@ -699,7 +716,7 @@ def updatetitle(reset=False):
             ctypes.windll.kernel32.SetConsoleTitleW(f"💥{kills_hour} ⌚{lastkill} 🎯{track.missionredirects}/{len(track.missionsactive)}")
         elif reset == True:
             ctypes.windll.kernel32.SetConsoleTitleW(f"ED AFK Monitor v{VERSION}")
-            debug("Title update")
+            #debug("Title update")
 
 # Output stats for kills, bounties and merits
 def summary(stats, logtime=None, session=True):
@@ -730,30 +747,32 @@ def summary(stats, logtime=None, session=True):
 if __name__ == "__main__":
     try:
         # Journal preloading
-        with open(journal_dir / journal_file, mode="r", encoding="utf-8") as file:
-            for line in file:
-                processevent(line)
-                track.lines += 1
-        track.preloading = False
-        if args.resetsession:
-            session.reset()
-            logevent(msg_term=f"Session stats reset",
-                    emoji="🔄", loglevel=1)
-        updatetitle(True)
+        if track.preloading:
+            with open(journal_dir / journal_file, mode="r", encoding="utf-8") as file:
+                for line in file:
+                    processevent(line)
+                    track.lines += 1
+            track.preloading = False
+            if args.resetsession:
+                session.reset()
+                logevent(msg_term=f"Session stats reset",
+                        emoji="🔄", loglevel=1)
+            updatetitle(True)
 
         # Send Discord startup
         update_notice = f"\n:arrow_up: Update **[v{latest_version}](https://github.com/{GITHUB_REPO}/releases)** available!" if VERSION < latest_version else ""
 
-        if discord_forumchannel:
-            discordsend(f"💥 **ED AFK Monitor** 💥 by CMDR PSIPAB ([v{VERSION}](https://github.com/{GITHUB_REPO})){update_notice}")
-            webhook.content += f" <@{discord_user}>"
-            webhook.edit()
-        else:
-            discordsend(f"# 💥 ED AFK Monitor 💥\n-# by CMDR PSIPAB ([v{VERSION}](https://github.com/{GITHUB_REPO})){update_notice}")
+        if discord_enabled:
+            if discord_forumchannel:
+                discordsend(f"💥 **ED AFK Monitor** 💥 by CMDR PSIPAB ([v{VERSION}](https://github.com/{GITHUB_REPO})){update_notice}")
+                webhook.content += f" <@{discord_user}>"
+                webhook.edit()
+            else:
+                discordsend(f"# 💥 ED AFK Monitor 💥\n-# **by CMDR PSIPAB ([v{VERSION}](https://github.com/{GITHUB_REPO})){update_notice}**")
         
         logevent(msg_term=f"Monitor started ({journal_file})",
-                msg_discord=f"**Monitor started** ({journal_file})",
-                emoji="📖", loglevel=2)
+                 msg_discord=f"**Monitor started** ({journal_file})",
+                 emoji="📖", loglevel=2)
         
         # Open journal from end and watch for new lines
         trackingerror = None

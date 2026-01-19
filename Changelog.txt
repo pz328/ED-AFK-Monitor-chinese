@@ -4,11 +4,13 @@ ED AFK Monitor Changelog
 
 WIP
 ---
-- Config profiles are auto-loaded if a matching commander name is found
 - Monitor now waits for first game load before completing startup
+  - Config profiles are auto-loaded if a matching commander name is found
+  - Commander name and loaded config profile added to startup info
+  - Nothing is sent to Discord until the game has been loaded
+- Log player swapping ships
 - Option 'ThreadCmdrNames' for commander name in thread titles (@Conshmea #12)
 - Argument '--setfile' to load specific journal file (@Conshmea #13)
-- Commander name and loaded config profile added to startup info
 
 v250904
 -------
