@@ -24,7 +24,7 @@ def fallover(message):
 # Internals
 DEBUG_MODE = False
 DISCORD_TEST = False
-VERSION = 251009
+VERSION = 260121
 GITHUB_REPO = "PsiPab/ED-AFK-Monitor"
 DUPE_MAX = 5
 MAX_FILES = 10
@@ -132,7 +132,8 @@ class Stats:
 
     def reset(self):
         self.scans = []
-        self.lastkill = 0
+        self.lastkillutc = 0
+        self.lastkillmono = 0
         self.killstime = 0
         self.killsrecent = []
         self.kills = 0
@@ -460,14 +461,16 @@ def processevent(line):
                 track.lastcheck = time.monotonic()
                 session.meritstoreport +=1
                 
-                if session.lastkill:
-                    seconds = (thiskill-session.lastkill).total_seconds()
+                if session.lastkillutc:
+                    seconds = (thiskill-session.lastkillutc).total_seconds()
                     killtime = f" (+{time_format(seconds)})"
                     session.killstime += seconds
                     if len(session.killsrecent) == KILLS_RECENT: session.killsrecent.pop(0)
                     session.killsrecent.append(seconds)
                     total.killstime += seconds
-                session.lastkill = logtime
+                session.lastkillutc = logtime
+                if not track.preloading:
+                    session.lastkillmono = time.monotonic()
 
                 hard = ""
                 log = getloglevel("KillEasy")
@@ -678,17 +681,19 @@ def processevent(line):
         debug(line)
 
 def time_format(seconds: int) -> str:
-    if seconds is not None:
-        seconds = int(seconds)
-        h = seconds // 3600
-        m = seconds % 3600 // 60
-        s = seconds % 3600 % 60
-        if h > 0:
-            return "{:d}h{:d}m".format(h, m)
-        elif m > 0:
-            return "{:d}m{:d}s".format(m, s)
-        else:
-            return "{:d}s".format(s)
+	if seconds is not None and seconds >= 0:
+		seconds = int(seconds)
+		h = seconds // 3600
+		m = seconds % 3600 // 60
+		s = seconds % 3600 % 60
+		if h > 0:
+			return '{:d}h{:d}m'.format(h, m)
+		elif m > 0:
+			return '{:d}m{:d}s'.format(m, s)
+		else:
+			return '{:d}s'.format(s)
+	else:
+		return "-"
 
 def num_format(number: int) -> str:
     if number is not None:
@@ -708,10 +713,15 @@ def updatetitle(reset=False):
             if session.kills > 0:
                 kills_hour = perhour((timeutc - track.deploytime).total_seconds() / session.kills, 1)
                 kills_hour = f"{kills_hour}/h" if session.kills > 19 else f"{kills_hour}*/h"
-                lastkill = time_format(round((timeutc - session.lastkill).total_seconds()))
             else:
                 kills_hour = "-/h"
-                lastkill = time_format(round((timeutc - track.deploytime).total_seconds()))
+            
+            if session.lastkillmono:
+                lastkill = time_format(time.monotonic() - session.lastkillmono)
+            elif session.kills > 0:
+                lastkill = time_format((timeutc - session.lastkillutc).total_seconds())
+            else:
+                lastkill = time_format((timeutc - track.deploytime).total_seconds())
             
             ctypes.windll.kernel32.SetConsoleTitleW(f"💥{kills_hour} ⌚{lastkill} 🎯{track.missionredirects}/{len(track.missionsactive)}")
         elif reset == True:
@@ -813,7 +823,7 @@ if __name__ == "__main__":
                                             track.warnedkillrate = timemono
                                     else:
                                     # Check time since last kill
-                                        lastkill = int((timeutc - session.lastkill).total_seconds() / 60)
+                                        lastkill = int((timeutc - session.lastkillutc).total_seconds() / 60)
                                         #debug(f"timeutc: {timeutc} | lastkill: {lastkill} | track.warnedkillrate: {track.warnedkillrate} | setting_warnnokills: {setting_warnnokills}")
                                         if not track.warnedkillrate and lastkill >= (setting_warnnokills):
                                             logevent(msg_term=f"Last logged kill was {lastkill} minutes ago",

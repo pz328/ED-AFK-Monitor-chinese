@@ -11,6 +11,7 @@ WIP
 - Log player swapping ships
 - Option 'ThreadCmdrNames' for commander name in thread titles (@Conshmea #12)
 - Argument '--setfile' to load specific journal file (@Conshmea #13)
+- Workaround (real) time since kill issues if system time is offset
 
 v250904
 -------
