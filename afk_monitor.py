@@ -24,7 +24,7 @@ def fallover(message):
 # Internals
 DEBUG_MODE = False
 DISCORD_TEST = False
-VERSION = 260121
+VERSION = 260122
 GITHUB_REPO = "PsiPab/ED-AFK-Monitor"
 DUPE_MAX = 5
 MAX_FILES = 10
@@ -323,11 +323,13 @@ setting_bountyvalue = getconfig("Settings", "BountyValue", False)
 setting_extendedstats = getconfig("Settings", "ExtendedStats", False)
 setting_dynamictitle = getconfig("Settings", "DynamicTitle", True)
 discord_webhook = args.webhook if args.webhook is not None else getconfig("Discord", "WebhookURL", "")
-discord_forumchannel = getconfig("Discord", "ForumChannel", False)
-discord_thread_cmdr_names = getconfig("Discord", "ThreadCmdrNames", False)
 discord_user = getconfig("Discord", "UserID", 0)
+discord_prependcmdr = getconfig("Discord", "PrependCmdrName", False)
+discord_forumchannel = getconfig("Discord", "ForumChannel", False)
+discord_threadcmdrnames = getconfig("Discord", "ThreadCmdrNames", False)
 discord_timestamp = getconfig("Discord", "Timestamp", True)
 discord_identity = getconfig("Discord", "Identity", True)
+
 loglevel = {}
 for level in LOGLEVEL_DEFAULTS:
     loglevel[level] = getconfig("LogLevels", level, LOGLEVEL_DEFAULTS[level])
@@ -344,7 +346,7 @@ if discord_enabled and re.search(REG_WEBHOOK, discord_webhook):
     if discord_forumchannel:
         journal_start = datetime.fromisoformat(journal_file[8:-7])
         journal_start = datetime.strftime(journal_start, "%Y-%m-%d %H:%M:%S")
-        if discord_thread_cmdr_names:
+        if discord_threadcmdrnames:
             webhook.thread_name = f"{track.cmdrname} {journal_start}"
         else:
             webhook.thread_name = journal_start
@@ -380,9 +382,13 @@ def logevent(msg_term, msg_discord=None, emoji=None, timestamp=None, loglevel=2,
     else:
         logtime = datetime.now(timezone.utc) if setting_utc else datetime.now()
     logtime = datetime.strftime(logtime, "%H:%M:%S")
+    track.logged +=1
+    
+    # Terminal
     if loglevel > 0 and not discord_test:
         print(f"[{logtime}]{emoji}{msg_term}")
-    track.logged +=1
+    
+    # Discord
     if discord_enabled and loglevel > 1:
         if event is not None and track.dupeevent == event:
             track.duperepeats += 1
@@ -393,10 +399,11 @@ def logevent(msg_term, msg_discord=None, emoji=None, timestamp=None, loglevel=2,
         discord_message = msg_discord if msg_discord else f"**{msg_term}**"
         ping = f" <@{discord_user}>" if loglevel > 2 and track.duperepeats == 1 else ""
         logtime = f" {{{logtime}}}" if discord_timestamp else ""
+        cmdrname = "" if not discord_prependcmdr else f"[{track.cmdrname}] "
         if track.duperepeats <= DUPE_MAX:
-            discordsend(f"{emoji}{discord_message}{logtime}{ping}")
+            discordsend(f"{cmdrname}{emoji}{discord_message}{logtime}{ping}")
         elif not track.dupewarn:
-            discordsend(f"⏸️ **Suppressing further duplicate messages**{logtime}")
+            discordsend(f"{cmdrname}⏸️ **Suppressing further duplicate messages**{logtime}")
             track.dupewarn = True
 
 # Get log level from config or use default

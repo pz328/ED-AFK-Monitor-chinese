@@ -26,6 +26,8 @@ WebhookURL = ''
 # User ID can be found by sending \@yourdiscordusername on Discord (use only the numbers), e.g.:
 # UserID = 745279460191739562
 UserID = 0
+# PrependCmdrName adds the active commander name to the start of Discord messages (Default: false)
+PrependCmdrName = false
 # ForumChannel specifies webhook is for a forum channel and enables thread support (Default: false)
 ForumChannel = false
 # ThreadCmdrNames = true include the commander name in the thread name along with the start time (Default: false)
