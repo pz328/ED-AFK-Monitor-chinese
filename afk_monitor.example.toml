@@ -9,8 +9,10 @@ UseUTC = false
 WarnKillRate = 20
 # WarnNoKills is time in minutes since last kill before sending a warning (Default: 20, log level 'NoKills')
 WarnNoKills = 20
-# BountyFaction shows faction name on each kill (Default: false)
-BountyFaction = false
+# PirateNames shows name of pirate on kills and cargo scans (Default: false)
+PirateNames = false
+# BountyFaction shows faction name on each kill (Default: true)
+BountyFaction = true
 # BountyValue shows credits earned on each kill (Default: false)
 BountyValue = false
 # ExtendedStats shows extra stats e.g. recent kill rate (Default: false)

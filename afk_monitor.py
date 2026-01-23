@@ -320,6 +320,7 @@ if profile: debug(f"Profile '{profile}': {config[profile]}")
 setting_utc = getconfig("Settings", "UseUTC", False)
 setting_warnkillrate = getconfig("Settings", "WarnKillRate", 20)
 setting_warnnokills = getconfig("Settings", "WarnNoKills", 20)
+setting_piratenames = getconfig("Settings", "PirateNames", False)
 setting_bountyfaction = getconfig("Settings", "BountyFaction", True)
 setting_bountyvalue = getconfig("Settings", "BountyValue", False)
 setting_extendedstats = getconfig("Settings", "ExtendedStats", False)
@@ -443,9 +444,11 @@ def processevent(line):
                         session.scansin += 1
                         total.scansin += 1
                         scansin = f" (x{session.scansin})" if setting_extendedstats else ""
+                        pirate = f" [{piratename}]" if setting_piratenames else ""
                         if len(session.scansinrecents) == 5: session.scansinrecents.pop(0)
                         session.scansinrecents.append(piratename)                        
-                        logevent(msg_term=f"Cargo scanned by {piratename}{scansin}",
+                        logevent(msg_term=f"Cargo scan{scansin}{pirate}",
+                                 msg_discord=f"**Cargo scan{scansin}**{pirate}",
                                 emoji="👀", timestamp=logtime, loglevel=getloglevel("ScanIncoming"))
                 elif any(x in j["Message"] for x in BAIT_MESSAGES):
                     session.baitfails += 1
@@ -520,6 +523,7 @@ def processevent(line):
                     ship = "Bond"
                     track.killtype = "bonds"
 
+                piratename = f" [{j['PilotName_Localised']}]" if "PilotName_Localised" in j and setting_piratenames else ""
                 session.bounties += bountyvalue
                 total.bounties += bountyvalue
                 kills_t = f" x{session.kills}" if setting_extendedstats else ""
@@ -528,8 +532,8 @@ def processevent(line):
                 victimfaction = j["VictimFaction_Localised"] if "VictimFaction_Localised" in j else j["VictimFaction"]
                 bountyfaction = victimfaction if len(victimfaction) <= TRUNC_FACTION+3 else f"{victimfaction[:TRUNC_FACTION].rstrip()}..."
                 bountyfaction = f" [{bountyfaction}]" if setting_bountyfaction else ""
-                logevent(msg_term=f"{col}Kill{Col.END}{kills_t}: {ship}{killtime}{bountyvalue}{bountyfaction}",
-                        msg_discord=f"{kills_d}**{ship}{hard}{killtime}**{bountyvalue}{bountyfaction}",
+                logevent(msg_term=f"{col}Kill{Col.END}{kills_t}: {ship}{killtime}{piratename}{bountyvalue}{bountyfaction}",
+                        msg_discord=f"{kills_d}**{ship}{hard}{killtime}**{piratename}{bountyvalue}{bountyfaction}",
                         emoji="💥", timestamp=logtime, loglevel=log)
                 
                 updatetitle()

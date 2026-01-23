@@ -4,7 +4,8 @@ ED AFK Monitor Changelog
 
 WIP
 ---
--New log level 'ScanIncoming' reports scans of your cargo by pirates
+- New log level 'ScanIncoming' reports scans of your cargo by pirates
+- New setting 'PirateNames' adds pirate names to scans and kill logs
 
 v260122
 -------
