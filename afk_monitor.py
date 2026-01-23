@@ -137,6 +137,7 @@ class Stats:
         self.lastkillmono = 0
         self.killstime = 0
         self.killsrecent = []
+        self.scansin = 0
         self.kills = 0
         self.bounties = 0
         self.merits = 0
@@ -439,9 +440,12 @@ def processevent(line):
                 if "$Pirate_OnStartScanCargo" in j["Message"]:
                     piratename = j["From_Localised"] if "From_Localised" in j else "[unknown]"
                     if piratename not in session.scansinrecents:
+                        session.scansin += 1
+                        total.scansin += 1
+                        scansin = f" (x{session.scansin})" if setting_extendedstats else ""
                         if len(session.scansinrecents) == 5: session.scansinrecents.pop(0)
                         session.scansinrecents.append(piratename)                        
-                        logevent(msg_term=f"Cargo scanned by {piratename}",
+                        logevent(msg_term=f"Cargo scanned by {piratename}{scansin}",
                                 emoji="👀", timestamp=logtime, loglevel=getloglevel("ScanIncoming"))
                 elif any(x in j["Message"] for x in BAIT_MESSAGES):
                     session.baitfails += 1
@@ -757,7 +761,11 @@ def summary(stats, logtime=None, session=True):
             avgsecondsrecent = sum(stats.killsrecent) / (KILLS_RECENT)
             kills_hour_recent = f" [x{KILLS_RECENT}: {perhour(avgsecondsrecent, 1)}/hr]"
         
-        logevent(msg_term=f"{type} kills: {stats.kills:,} ({kills_hour}/hr | {time_format(avgseconds)}/kill){kills_hour_recent}",
+        scansin = ""
+        if not session and setting_extendedstats:
+            scansin = f" [Scans: {stats.scansin:,}]"
+        
+        logevent(msg_term=f"{type} kills: {stats.kills:,} ({kills_hour}/hr | {time_format(avgseconds)}/kill){kills_hour_recent}{scansin}",
                 emoji="📝", timestamp=logtime, loglevel=getloglevel("SummaryKills"))
         
         logevent(msg_term=f"{type} {track.killtype}: {num_format(stats.bounties)} ({num_format(bounties_hour)}/hr | {num_format(avgbounty)}/kill)",
