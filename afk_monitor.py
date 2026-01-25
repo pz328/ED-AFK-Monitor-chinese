@@ -449,7 +449,7 @@ def processevent(line):
                         session.scansinrecents.append(piratename)                        
                         logevent(msg_term=f"Cargo scan{scansin}{pirate}",
                                  msg_discord=f"**Cargo scan{scansin}**{pirate}",
-                                emoji="👀", timestamp=logtime, loglevel=getloglevel("ScanIncoming"))
+                                emoji="📦", timestamp=logtime, loglevel=getloglevel("ScanIncoming"))
                 elif any(x in j["Message"] for x in BAIT_MESSAGES):
                     session.baitfails += 1
                     baitfails = f" (x{session.baitfails})" if setting_extendedstats else ""
@@ -646,7 +646,7 @@ def processevent(line):
                 name = j["Type_Localised"] if "Type_Localised" in j else j["Type"].title()
                 logevent(msg_term=f"{Col.BAD}Cargo stolen!{Col.END} ({name})",
                         msg_discord=f"**Cargo stolen!** ({name})",
-                        emoji="📦", timestamp=logtime, loglevel=getloglevel("CargoLost"), event="CargoLost")
+                        emoji="🪓", timestamp=logtime, loglevel=getloglevel("CargoLost"), event="CargoLost")
             case "Rank":
                 track.cmdrcombatrank = COMBAT_RANKS[j["Combat"]]
             case "Progress":
