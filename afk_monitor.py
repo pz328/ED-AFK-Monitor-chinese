@@ -481,6 +481,7 @@ def processevent(line):
                         if len(session.scansoutrecents) == 10:
                             session.scansoutrecents.pop(0)
                         session.scansoutrecents.append(check)
+                        pirate = f" [{piratename}]" if setting_piratenames else ""
                         hard = ""
                         log = getloglevel("ScanEasy")
                         if j["Ship"] in SHIPS_EASY:
@@ -491,8 +492,8 @@ def processevent(line):
                             hard = " ☠️"
                         else:
                             col = Col.WHITE
-                        logevent(msg_term=f"{col}Scan{Col.END}: {ship}{rank}",
-                                msg_discord=f"**{ship}**{hard}{rank}",
+                        logevent(msg_term=f"{col}Scan{Col.END}: {ship}{rank}{pirate}",
+                                msg_discord=f"**{ship}**{hard}{rank}{pirate}",
                                 emoji="🔎", timestamp=logtime, loglevel=log)
             case "Bounty" | "FactionKillBond":
                 track.sessionstart()
