@@ -440,7 +440,7 @@ def processevent(line):
         match j["event"]:
             case "ReceiveText" if j["Channel"] == "npc":
                 if "$Pirate_OnStartScanCargo" in j["Message"]:
-                    piratename = j["From_Localised"] if "From_Localised" in j else "[unknown]"
+                    piratename = j["From_Localised"] if "From_Localised" in j else UNKNOWN
                     if piratename not in session.scansinrecents:
                         session.scansin += 1
                         total.scansin += 1
@@ -474,7 +474,7 @@ def processevent(line):
                 # Pirates etc.
                 elif j["Ship"] in SHIPS_EASY or j["Ship"] in SHIPS_HARD:
                     track.sessionstart()
-                    piratename = j["PilotName_Localised"] if "PilotName_Localised" in j else "[unknown]"
+                    piratename = j["PilotName_Localised"] if "PilotName_Localised" in j else UNKNOWN
                     check = piratename if setting_minscanlevel != 0 else ship
                     scanstage = j["ScanStage"] if "ScanStage" in j else 0
                     if scanstage >= setting_minscanlevel and not check in session.scansoutrecents:
@@ -651,8 +651,13 @@ def processevent(line):
                 #debug(f"Fuel capacity: {track.fuelcapacity}")
             case "SupercruiseDestinationDrop" if any(x in j["Type"] for x in ["$MULTIPLAYER", "$Warzone"]):
                 track.sessionstart(True)
-                logevent(msg_term=f"Dropped at {j["Type_Localised"]}",
-                        emoji="🚀", timestamp=logtime, loglevel=2)
+                type = j["Type_Localised"] if "Type_Localised" in j else UNKNOWN
+                if "Resource Extraction Site" in type:
+                    emoji = "🪐"
+                else:
+                    emoji = "⚔️"
+                logevent(msg_term=f"Dropped at {type}",
+                        emoji=emoji, timestamp=logtime, loglevel=2)
                 debug(f"Deploy time by supercruise drop: {track.deploytime}")
             case "EjectCargo" if not j["Abandoned"] and j["Count"] == 1:
                 name = j["Type_Localised"] if "Type_Localised" in j else j["Type"].title()
@@ -703,15 +708,19 @@ def processevent(line):
                         emoji="🛑", timestamp=logtime, loglevel=2)
                 if __name__ == "__main__": sys.exit()
             case "SupercruiseEntry" | "FSDJump":
-                event = "Supercruise entry in" if j["event"] == "SupercruiseEntry" else "FSD jump to"
-                #debug(f"{event} {j["StarSystem"]}")
+                if j["event"] == "SupercruiseEntry":
+                    event = "Supercruise entry in"
+                    emoji = "🚀"
+                else:
+                    event = "FSD jump to"
+                    emoji = "☀️"
                 logevent(msg_term=f"{event} {j["StarSystem"]}",
-                        emoji="🚀", timestamp=logtime, loglevel=2)
+                        emoji=emoji, timestamp=logtime, loglevel=2)
                 track.sessionend()
         track.lasteventname = j["event"]
     except Exception as e:
-        event = j["event"] if "event" in j else "[unknown]"
-        logtime = datetime.strftime(logtime, "%H:%M:%S") if logtime else "[unknown]"
+        event = j["event"] if "event" in j else UNKNOWN
+        logtime = datetime.strftime(logtime, "%H:%M:%S") if logtime else UNKNOWN
         print(f"{Col.WARN}Warning:{Col.END} Process event error for [{event}]: {e} (logtime: {logtime})")
         debug(line)
 
