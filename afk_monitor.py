@@ -140,6 +140,7 @@ class Stats:
         self.scansin = 0
         self.kills = 0
         self.bounties = 0
+        self.factions = {}
         self.merits = 0
         self.lastsecurity = ""
         self.baitfails = 0
@@ -542,12 +543,17 @@ def processevent(line):
                 kills_d = f"x{session.kills} " if setting_extendedstats else ""
                 bountyvalue = f" [{num_format(bountyvalue)} cr]" if setting_bountyvalue else ""
                 victimfaction = j["VictimFaction_Localised"] if "VictimFaction_Localised" in j else j["VictimFaction"]
+                if victimfaction in session.factions:
+                    session.factions[victimfaction] += 1
+                else:
+                    session.factions[victimfaction] = 1
+                factioncount = f" x{session.factions[victimfaction]}" if setting_extendedstats else ""
                 bountyfaction = victimfaction if len(victimfaction) <= TRUNC_FACTION+3 else f"{victimfaction[:TRUNC_FACTION].rstrip()}..."
-                bountyfaction = f" [{bountyfaction}]" if setting_bountyfaction else ""
+                bountyfaction = f" [{bountyfaction}{factioncount}]" if setting_bountyfaction else ""
                 logevent(msg_term=f"{col}Kill{Col.END}{kills_t}: {ship}{killtime}{piratename}{bountyvalue}{bountyfaction}",
                         msg_discord=f"{kills_d}**{ship}{hard}{killtime}**{piratename}{bountyvalue}{bountyfaction}",
                         emoji="💥", timestamp=logtime, loglevel=log)
-                
+
                 updatetitle()
                 
                 # Output stats every 10 kills
