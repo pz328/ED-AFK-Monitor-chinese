@@ -543,10 +543,8 @@ def processevent(line):
                 kills_d = f"x{session.kills} " if setting_extendedstats else ""
                 bountyvalue = f" [{num_format(bountyvalue)} cr]" if setting_bountyvalue else ""
                 victimfaction = j["VictimFaction_Localised"] if "VictimFaction_Localised" in j else j["VictimFaction"]
-                if victimfaction in session.factions:
-                    session.factions[victimfaction] += 1
-                else:
-                    session.factions[victimfaction] = 1
+                session.factions[victimfaction] = session.factions.get(victimfaction, 0) + 1
+                total.factions[victimfaction] = total.factions.get(victimfaction, 0) + 1
                 factioncount = f" x{session.factions[victimfaction]}" if setting_extendedstats else ""
                 bountyfaction = victimfaction if len(victimfaction) <= TRUNC_FACTION+3 else f"{victimfaction[:TRUNC_FACTION].rstrip()}..."
                 bountyfaction = f" [{bountyfaction}{factioncount}]" if setting_bountyfaction else ""
@@ -786,26 +784,25 @@ def summary(stats, logtime=None, session=True):
         kills_hour = perhour(avgseconds, 1)
         avgbounty = stats.bounties // stats.kills
         bounties_hour = perhour(stats.killstime / stats.bounties)
+        fac_kills = max(stats.factions.values())
+        fac_kills_hour = f" [Fac: {perhour(stats.killstime / (fac_kills - 1), 1)}/h]" if setting_extendedstats else ""
         
         kills_hour_recent = ""
         if session and setting_extendedstats and stats.kills > KILLS_RECENT:
             avgsecondsrecent = sum(stats.killsrecent) / (KILLS_RECENT)
-            kills_hour_recent = f" [x{KILLS_RECENT}: {perhour(avgsecondsrecent, 1)}/hr]"
+            kills_hour_recent = f" [x{KILLS_RECENT}: {perhour(avgsecondsrecent, 1)}/h]"
         
-        scansin = ""
-        if not session and setting_extendedstats:
-            scansin = f" [Scans: {stats.scansin:,}]"
-        
-        logevent(msg_term=f"{type} kills: {stats.kills:,} ({kills_hour}/hr | {time_format(avgseconds)}/kill){kills_hour_recent}{scansin}",
+        logevent(msg_term=f"{type} kills: {stats.kills:,} ({kills_hour}/h | {time_format(avgseconds)}/kill){fac_kills_hour}{kills_hour_recent}",
+                 msg_discord=f"**{type} kills: {stats.kills:,} ({kills_hour}/h | {time_format(avgseconds)}/kill)**{fac_kills_hour}{kills_hour_recent}",
                 emoji="📝", timestamp=logtime, loglevel=getloglevel("SummaryKills"))
         
-        logevent(msg_term=f"{type} {track.killtype}: {num_format(stats.bounties)} ({num_format(bounties_hour)}/hr | {num_format(avgbounty)}/kill)",
+        logevent(msg_term=f"{type} {track.killtype}: {num_format(stats.bounties)} ({num_format(bounties_hour)}/h | {num_format(avgbounty)}/kill)",
                 emoji="📝", timestamp=logtime, loglevel=getloglevel("SummaryBounties"))
         
         if stats.merits > 0:
             avgmerits = round(stats.merits / stats.kills, 1)
             merits_hour = perhour(stats.killstime / stats.merits) if stats.merits > 0 else 0
-            logevent(msg_term=f"{type} merits: {stats.merits:,} ({merits_hour:,}/hr | {avgmerits:,}/kill)",
+            logevent(msg_term=f"{type} merits: {stats.merits:,} ({merits_hour:,}/h | {avgmerits:,}/kill)",
                     emoji="📝", timestamp=logtime, loglevel=getloglevel("SummaryMerits"))
 
 if __name__ == "__main__":
