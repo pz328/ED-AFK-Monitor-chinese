@@ -24,7 +24,7 @@ def fallover(message):
 # Internals
 DEBUG_MODE = False
 DISCORD_TEST = False
-VERSION = 260122
+VERSION = 260202
 GITHUB_REPO = "PsiPab/ED-AFK-Monitor"
 DUPE_MAX = 5
 MAX_FILES = 10
@@ -40,7 +40,7 @@ REG_WEBHOOK = r"^https:\/\/(?:canary\.|ptb\.)?discord(?:app)?\.com\/api\/webhook
 SHIPS_EASY = ["adder", "asp", "asp_scout", "cobramkiii", "cobramkiv", "diamondback", "diamondbackxl", "eagle", "empire_courier", "empire_eagle", "krait_light", "sidewinder", "viper", "viper_mkiv"]
 SHIPS_HARD = ["typex", "typex_2", "typex_3", "anaconda", "federation_dropship_mkii", "federation_dropship", "federation_gunship", "ferdelance", "empire_trader", "krait_mkii", "python", "vulture", "type9_military"]
 BAIT_MESSAGES = ["$Pirate_ThreatTooHigh", "$Pirate_NotEnoughCargo", "$Pirate_OnNoCargoFound"]
-LOGLEVEL_DEFAULTS = {"ScanIncoming": 1, "ScanEasy": 1, "ScanHard": 2, "KillEasy": 2, "KillHard": 2, "FighterHull": 2, "FighterDown": 3, "ShipShields": 3, "ShipHull": 3, "Died": 3, "CargoLost": 3, "BaitValueLow": 2, "SecurityScan": 2, "SecurityAttack": 3, "FuelLow": 2, "FuelCritical": 3, "FuelReport": 1, "Missions": 2, "MissionsAll": 3, "Merits": 0, "SummaryKills": 2, "SummaryBounties": 2, "SummaryMerits": 2, "NoKills": 3, "KillRate": 3}
+LOGLEVEL_DEFAULTS = {"ScanIncoming": 1, "ScanEasy": 1, "ScanHard": 2, "KillEasy": 2, "KillHard": 2, "FighterHull": 2, "FighterDown": 3, "ShipShields": 3, "ShipHull": 3, "Died": 3, "CargoLost": 3, "BaitValueLow": 2, "SecurityScan": 2, "SecurityAttack": 3, "FuelLow": 2, "FuelCritical": 3, "FuelReport": 1, "Missions": 2, "MissionsAll": 3, "Merits": 0, "SummaryKills": 2, "SummaryFaction": 0, "SummaryBounties": 2, "SummaryMerits": 2, "NoKills": 3, "KillRate": 3}
 COMBAT_RANKS = ["Harmless", "Mostly Harmless", "Novice", "Competent", "Expert", "Master", "Dangerous", "Deadly", "Elite", "Elite I", "Elite II", "Elite III", "Elite IV", "Elite V"]
 
 class Col:
@@ -421,7 +421,7 @@ def getloglevel(key=None) -> int:
         return level
 
 # Calculate somethings per hour
-def perhour(seconds=0, precision=None):
+def per_hour(seconds=0, precision=None):
     if seconds > 0:
         return round(3600 / seconds, precision)
     else:
@@ -759,7 +759,7 @@ def updatetitle(reset=False):
         if setting_dynamictitle and not track.preloading and track.deploytime:
             timeutc = datetime.now(timezone.utc)
             if session.kills > 0:
-                kills_hour = perhour((timeutc - track.deploytime).total_seconds() / session.kills, 1)
+                kills_hour = per_hour((timeutc - track.deploytime).total_seconds() / session.kills, 1)
                 kills_hour = f"{kills_hour}/h" if session.kills > 19 else f"{kills_hour}*/h"
             else:
                 kills_hour = "-/h"
@@ -778,32 +778,66 @@ def updatetitle(reset=False):
 
 # Output stats for kills, bounties and merits
 def summary(stats, logtime=None, session=True):
-    if stats.kills > 1:
-        type = "Session" if session else "Total"
-        avgseconds = stats.killstime / (stats.kills - 1)
-        kills_hour = perhour(avgseconds, 1)
-        avgbounty = stats.bounties // stats.kills
-        bounties_hour = perhour(stats.killstime / stats.bounties)
-        fac_kills = max(stats.factions.values())
-        fac_kills_hour = f" [Fac: {perhour(stats.killstime / (fac_kills - 1), 1)}/h]" if setting_extendedstats else ""
+    log_kills = getloglevel("SummaryKills")
+    log_faction = getloglevel("SummaryFaction")
+    log_bounties = getloglevel("SummaryBounties")
+    log_merits = getloglevel("SummaryMerits")
+    log_max = max([log_kills, log_faction, log_bounties, log_merits])
+    
+    if stats.kills < 2 or log_max == 0:
+        return
+    
+    type = "Session" if session else "Total"
+    stats_out = {}
+    
+    # Kills
+    if log_kills > 0:
+        kills_average_time = stats.killstime / (stats.kills - 1)
+        kills_hour = per_hour(kills_average_time, 1)
         
-        kills_hour_recent = ""
+        # Recent kills
+        kills_recent = ""
         if session and setting_extendedstats and stats.kills > KILLS_RECENT:
-            avgsecondsrecent = sum(stats.killsrecent) / (KILLS_RECENT)
-            kills_hour_recent = f" [x{KILLS_RECENT}: {perhour(avgsecondsrecent, 1)}/h]"
+            kills_recent_average_time = sum(stats.killsrecent) / (KILLS_RECENT)
+            kills_recent = f" [x{KILLS_RECENT}: {per_hour(kills_recent_average_time, 1)}/h]"
+
+        stats_out["Kills"] = f"{stats.kills:,} ({kills_hour}/h | {time_format(kills_average_time)}/kill){kills_recent}"
+
+    # Faction #1 kills
+    if log_faction > 0:
+        faction_kills = max(stats.factions.values())
+        faction_kills_hour = per_hour(stats.killstime / (faction_kills - 1), 1)
+        faction_kills_percent = round((faction_kills / stats.kills) * 100)
+        faction_name = max(stats.factions, key=stats.factions.get)
+
+        stats_out["Faction"] = f"{faction_kills:,} ({faction_kills_hour}/h | {faction_kills_percent}%) [{faction_name}]"
+    
+    # Bounties
+    if log_bounties > 0:
+        bounties_hour = per_hour(stats.killstime / stats.bounties)
+        bounties_average = num_format(stats.bounties // stats.kills)
+
+        stats_out[track.killtype.capitalize()] = f"{num_format(stats.bounties)} ({num_format(bounties_hour)}/h | {bounties_average}/kill)"
+    
+    # Merits
+    if log_merits > 0 and stats.merits > 0:
+        merits_hour = per_hour(stats.killstime / stats.merits) if stats.merits > 0 else 0
+        merits_average = round(stats.merits / stats.kills, 1)
         
-        logevent(msg_term=f"{type} kills: {stats.kills:,} ({kills_hour}/h | {time_format(avgseconds)}/kill){fac_kills_hour}{kills_hour_recent}",
-                 msg_discord=f"**{type} kills: {stats.kills:,} ({kills_hour}/h | {time_format(avgseconds)}/kill)**{fac_kills_hour}{kills_hour_recent}",
-                emoji="📝", timestamp=logtime, loglevel=getloglevel("SummaryKills"))
+        stats_out["Merits"] = f"{stats.merits:,} ({merits_hour:,}/h | {merits_average:,}/kill)"
+    
+    # Output
+    if stats_out:
+        out_terminal = f"{type} Stats"
+        out_discord = f"**{type} Stats**"
         
-        logevent(msg_term=f"{type} {track.killtype}: {num_format(stats.bounties)} ({num_format(bounties_hour)}/h | {num_format(avgbounty)}/kill)",
-                emoji="📝", timestamp=logtime, loglevel=getloglevel("SummaryBounties"))
-        
-        if stats.merits > 0:
-            avgmerits = round(stats.merits / stats.kills, 1)
-            merits_hour = perhour(stats.killstime / stats.merits) if stats.merits > 0 else 0
-            logevent(msg_term=f"{type} merits: {stats.merits:,} ({merits_hour:,}/h | {avgmerits:,}/kill)",
-                    emoji="📝", timestamp=logtime, loglevel=getloglevel("SummaryMerits"))
+        for k, v in stats_out.items():
+            out_terminal += f"\n{" "*10}-> {k}: {v}"
+            out_discord += f"\n:white_small_square: **{k}:** {v}"
+
+        logevent(msg_term=f"{out_terminal}",
+            msg_discord=f"{out_discord}",
+            emoji="📝", timestamp=logtime, loglevel=log_max)
 
 if __name__ == "__main__":
     try:
@@ -864,7 +898,7 @@ if __name__ == "__main__":
                                         track.warnedkillrate = None
                                     
                                     # Check average kill rate
-                                    kills_hour = perhour(sessionsecs / session.kills, 1)
+                                    kills_hour = per_hour(sessionsecs / session.kills, 1)
                                     #debug(f"Kills per hour {kills_hour}")
                                     if kills_hour < setting_warnkillrate:
                                         if not track.warnedkillrate and sessionsecs >= (5 * 60) and (not track.warnednokills or

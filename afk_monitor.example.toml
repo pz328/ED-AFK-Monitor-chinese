@@ -13,8 +13,8 @@ WarnKillRate = 20
 WarnNoKills = 20
 # PirateNames shows name of pirate on kills and cargo scans (Default: false)
 PirateNames = false
-# BountyFaction shows faction name on each kill (Default: true)
-BountyFaction = true
+# BountyFaction shows faction name on each kill (Default: false)
+BountyFaction = false
 # BountyValue shows credits earned on each kill (Default: false)
 BountyValue = false
 # ExtendedStats shows extra stats e.g. recent kill rate (Default: false)
@@ -65,12 +65,15 @@ FuelLow = 2             # Fuel level low (under 20%)
 FuelCritical = 3        # Fuel level critical (under 10%)
 Missions = 2            # Kills completed for a mission
 MissionsAll = 3         # Kills completed for all missions
-SummaryKills = 2        # Summary of kills every 10 and at close
-SummaryBounties = 2     # Summary of credits earned from bounties or bonds
 Merits = 0              # Merits gained (powerplay-only)
-SummaryMerits = 2       # Summary of merits (powerplay-only)
 NoKills = 3             # Warning of no kills for configured time ('WarnNoKills' in Settings)
 KillRate = 3            # Warning of low kill rate per hour ('WarnKillRate' in Settings)
+# Stat summaries are collated into one message every 10 kills and on exit
+# 0 hides that category, highest log level is used for the summary message
+SummaryKills = 2        # Kills and rate/h from bounties or bonds
+SummaryFaction = 2      # As above but for the most-killed faction
+SummaryBounties = 2     # Credits earned from bounties or bonds
+SummaryMerits = 2       # Merits (powerplay, only show if any earned)
 
 # Custom profiles (advanced)
 # You can set additional profiles to override settings as per the example below
