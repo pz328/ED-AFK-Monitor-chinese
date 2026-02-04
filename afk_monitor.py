@@ -24,7 +24,7 @@ def fallover(message):
 # Internals
 DEBUG_MODE = False
 DISCORD_TEST = False
-VERSION = 260202
+VERSION = 260204
 GITHUB_REPO = "PsiPab/ED-AFK-Monitor"
 DUPE_MAX = 5
 MAX_FILES = 10
@@ -778,20 +778,17 @@ def updatetitle(reset=False):
 
 # Output stats for kills, bounties and merits
 def summary(stats, logtime=None, session=True):
-    log_kills = getloglevel("SummaryKills")
-    log_faction = getloglevel("SummaryFaction")
-    log_bounties = getloglevel("SummaryBounties")
-    log_merits = getloglevel("SummaryMerits")
-    log_max = max([log_kills, log_faction, log_bounties, log_merits])
+    log_levels = {"Kills": getloglevel("SummaryKills"), "Faction": getloglevel("SummaryFaction"),
+                  "Bounties": getloglevel("SummaryBounties"), "Merits": getloglevel("SummaryMerits")}
+    log_max = max(log_levels.values())
     
     if stats.kills < 2 or log_max == 0:
         return
     
-    type = "Session" if session else "Total"
     stats_out = {}
     
     # Kills
-    if log_kills > 0:
+    if log_levels["Kills"] > 0:
         kills_average_time = stats.killstime / (stats.kills - 1)
         kills_hour = per_hour(kills_average_time, 1)
         
@@ -805,7 +802,7 @@ def summary(stats, logtime=None, session=True):
 
     # Faction #1 kills
     faction_kills = max(stats.factions.values())
-    if log_faction > 0 and faction_kills > 1:
+    if log_levels["Faction"] > 0 and faction_kills > 1:
         faction_kills = max(stats.factions.values())
         faction_kills_hour = per_hour(stats.killstime / (faction_kills - 1), 1)
         faction_kills_percent = round((faction_kills / stats.kills) * 100)
@@ -814,14 +811,14 @@ def summary(stats, logtime=None, session=True):
         stats_out["Faction"] = f"{faction_kills:,} ({faction_kills_hour}/h | {faction_kills_percent}%) [{faction_name}]"
     
     # Bounties
-    if log_bounties > 0:
+    if log_levels["Bounties"] > 0:
         bounties_hour = per_hour(stats.killstime / stats.bounties)
         bounties_average = num_format(stats.bounties // stats.kills)
 
         stats_out[track.killtype.capitalize()] = f"{num_format(stats.bounties)} ({num_format(bounties_hour)}/h | {bounties_average}/kill)"
     
     # Merits
-    if log_merits > 0 and stats.merits > 0:
+    if log_levels["Merits"] > 0 and stats.merits > 0:
         merits_hour = per_hour(stats.killstime / stats.merits) if stats.merits > 0 else 0
         merits_average = round(stats.merits / stats.kills, 1)
         
@@ -829,12 +826,15 @@ def summary(stats, logtime=None, session=True):
     
     # Output
     if stats_out:
+        type = "Session" if session else "Total"
         out_terminal = f"{type} Stats"
         out_discord = f"**{type} Stats**"
         
         for k, v in stats_out.items():
-            out_terminal += f"\n{" "*10}-> {k}: {v}"
-            out_discord += f"\n:white_small_square: **{k}:** {v}"
+            if log_levels[k] >= 1:
+                out_terminal += f"\n{" "*10}-> {k}: {v}"
+            if log_levels[k] >= 2:
+                out_discord += f"\n:white_small_square: **{k}:** {v}"
 
         logevent(msg_term=f"{out_terminal}",
             msg_discord=f"{out_discord}",
