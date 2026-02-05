@@ -778,8 +778,9 @@ def updatetitle(reset=False):
 
 # Output stats for kills, bounties and merits
 def summary(stats, logtime=None, session=True):
+    kill_type = track.killtype.capitalize()
     log_levels = {"Kills": getloglevel("SummaryKills"), "Faction": getloglevel("SummaryFaction"),
-                  "Bounties": getloglevel("SummaryBounties"), "Merits": getloglevel("SummaryMerits")}
+                  kill_type: getloglevel("SummaryBounties"), "Merits": getloglevel("SummaryMerits")}
     log_max = max(log_levels.values())
     
     if stats.kills < 2 or log_max == 0:
@@ -811,11 +812,11 @@ def summary(stats, logtime=None, session=True):
         stats_out["Faction"] = f"{faction_kills:,} ({faction_kills_hour}/h | {faction_kills_percent}%) [{faction_name}]"
     
     # Bounties
-    if log_levels["Bounties"] > 0:
+    if log_levels[kill_type] > 0:
         bounties_hour = per_hour(stats.killstime / stats.bounties)
         bounties_average = num_format(stats.bounties // stats.kills)
 
-        stats_out[track.killtype.capitalize()] = f"{num_format(stats.bounties)} ({num_format(bounties_hour)}/h | {bounties_average}/kill)"
+        stats_out[kill_type] = f"{num_format(stats.bounties)} ({num_format(bounties_hour)}/h | {bounties_average}/kill)"
     
     # Merits
     if log_levels["Merits"] > 0 and stats.merits > 0:
