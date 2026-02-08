@@ -2,7 +2,7 @@
 ED AFK Monitor Changelog
 ------------------------
 
-v260202
+v260204
 -------
 - New log level 'ScanIncoming' reports scans of your cargo by pirates
 - Faction kill count tracking
@@ -10,6 +10,8 @@ v260202
   - Faction kill count added to kill logs (ExtendedStats)
 - New setting 'PirateNames' adds pirate names to scans and kill logs
 - New setting 'MinScanLevel' specifies minimum level for outgoing scans
+- Stat summaries are now combined into a single multi-line message
+  - Each category is independently controlled through log levels 
 
 v260122
 -------
