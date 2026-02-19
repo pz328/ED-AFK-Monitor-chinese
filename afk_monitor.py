@@ -27,13 +27,9 @@ DISCORD_TEST = False
 VERSION = 260204
 GITHUB_REPO = "PsiPab/ED-AFK-Monitor"
 DUPE_MAX = 5
-MAX_FILES = 10
 FUEL_LOW = 0.2		# 20%
 FUEL_CRIT = 0.1		# 10%
-TRUNC_FACTION = 30
 KILLS_RECENT = 10
-WARN_NOKILLS = 5	# Minutes before warning of no kills at session start
-WARN_COOLDOWN = 15	# Cooldown in minutes after a kill rate warning (doubled each time thereafter)
 UNKNOWN = "[Unknown]"
 REG_JOURNAL = r"^Journal\.\d{4}-\d{2}-\d{2}T\d{6}\.\d{2}\.log$"
 REG_WEBHOOK = r"^https:\/\/(?:canary\.|ptb\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[A-z0-9_-]+$"
@@ -42,9 +38,10 @@ SHIPS_HARD = ["typex", "typex_2", "typex_3", "anaconda", "federation_dropship_mk
 BAIT_MESSAGES = ["$Pirate_ThreatTooHigh", "$Pirate_NotEnoughCargo", "$Pirate_OnNoCargoFound"]
 COMBAT_RANKS = ["Harmless", "Mostly Harmless", "Novice", "Competent", "Expert", "Master", "Dangerous", "Deadly", "Elite", "Elite I", "Elite II", "Elite III", "Elite IV", "Elite V"]
 # Config defaults
-DEFAULTS_SETTINGS = {'JournalFolder': '', 'UseUTC': False, 'DynamicTitle': True, 'WarnKillRate': 20, 'WarnNoKills': 20, 'PirateNames': False, 'BountyFaction': False, 'BountyValue': False, 'ExtendedStats': False, 'MinScanLevel': 1}
-DEFAULTS_DISCORD = {'WebhookURL': '', 'UserID': 0, 'PrependCmdrName': False, 'ForumChannel': False, 'ThreadCmdrNames': False, 'Timestamp': True, 'Identity': True}
-DEFAULTS_LOG_LEVELS = {'ScanIncoming': 1, 'ScanEasy': 1, 'ScanHard': 2, 'KillEasy': 2, 'KillHard': 2, 'FighterHull': 2, 'FighterDown': 3, 'ShipShields': 3, 'ShipHull': 3, 'Died': 3, 'CargoLost': 3, 'BaitValueLow': 2, 'SecurityScan': 2, 'SecurityAttack': 3, 'FuelReport': 1, 'FuelLow': 2, 'FuelCritical': 3, 'Missions': 2, 'MissionsAll': 3, 'Merits': 0, 'NoKills': 3, 'KillRate': 3, 'SummaryKills': 2, 'SummaryFaction': 0, 'SummaryBounties': 2, 'SummaryMerits': 2}
+DEFAULTS_SETTINGS = {"JournalFolder": "", "UseUTC": False, "DynamicTitle": True, "WarnKillRate": 20, "WarnNoKills": 20, "PirateNames": False, "BountyFaction": False, "BountyValue": False, "ExtendedStats": False, "MinScanLevel": 1}
+DEFAULTS_EXTRA = {"RecentFiles": 10, "TruncateNames": 30, "WarnNoKillsInitial": 5, "WarnCooldown": 15}
+DEFAULTS_DISCORD = {"WebhookURL": "", "UserID": 0, "PrependCmdrName": False, "ForumChannel": False, "ThreadCmdrNames": False, "Timestamp": True, "Identity": True}
+DEFAULTS_LOG_LEVELS = {"ScanIncoming": 1, "ScanEasy": 1, "ScanHard": 2, "KillEasy": 2, "KillHard": 2, "FighterHull": 2, "FighterDown": 3, "ShipShields": 3, "ShipHull": 3, "Died": 3, "CargoLost": 3, "BaitValueLow": 2, "SecurityScan": 2, "SecurityAttack": 3, "FuelReport": 1, "FuelLow": 2, "FuelCritical": 3, "Missions": 2, "MissionsAll": 3, "Merits": 0, "NoKills": 3, "KillRate": 3, "SummaryKills": 2, "SummaryFaction": 0, "SummaryBounties": 2, "SummaryMerits": 2}
 
 class Col:
     CYAN = "\033[96m"
@@ -108,7 +105,7 @@ file_group.add_argument("-f", "--fileselect", action="store_true", default=None,
 args = parser.parse_args()
 
 # Get settings from config
-def getconfig(category: str, defaults: dict) -> dict:
+def getconfig(category: str, defaults: dict, warn_missing = True) -> dict:
     settings = {}
     for setting in defaults:
         this_setting = None
@@ -121,7 +118,8 @@ def getconfig(category: str, defaults: dict) -> dict:
         # Otherwise use provided default
         else:
             this_setting = defaults[setting]
-            print(f"{WARNING} Config '{category}' -> '{setting}' not found (using default: {defaults[setting]})")
+            if warn_missing:
+                print(f"{WARNING} Config '{category}' -> '{setting}' not found (using default: {defaults[setting]})")
         
         # Check setting matches type provided in defaults
         if type(this_setting) != type(defaults[setting]):
@@ -134,7 +132,8 @@ def getconfig(category: str, defaults: dict) -> dict:
 # Get settings from arguments
 profile = args.profile if args.profile is not None else None
 setting_fileselect = args.fileselect if args.fileselect is not None else False
-setting_journal_dir = args.journal if args.journal is not None else getconfig("Settings", {"JournalFolder": ''})["JournalFolder"]
+setting_journal_dir = args.journal if args.journal is not None else getconfig("Settings", {"JournalFolder": ""}, False)["JournalFolder"]
+setting_recent_files = getconfig("Settings", {"RecentFiles": DEFAULTS_EXTRA["RecentFiles"]}, False)["RecentFiles"]
 setting_journal_file = args.setfile if args.setfile is not None else None
 discord_test = args.test if args.test is not None else DISCORD_TEST
 debug_mode = args.debug if args.debug is not None else DEBUG_MODE
@@ -240,7 +239,7 @@ if not setting_journal_file:
             else:
                 # Build list of recent journals
                 journals.append(entry.name)
-                if len(journals) == MAX_FILES: break
+                if len(journals) == setting_recent_files: break
     
     # Exit if no journals were found
     if not journal_file and len(journals) == 0:
@@ -274,7 +273,7 @@ if not setting_journal_file:
         if selection:
             try:
                 selection = int(selection)
-                if 1 <= selection <= MAX_FILES:
+                if 1 <= selection <= setting_recent_files:
                     journal_file = journals[selection-1]
                     track.cmdrname = commanders[selection-1]
                 else:
@@ -339,6 +338,7 @@ if profile: debug(f"Profile '{profile}': {config[profile]}")
 
 # Get settings from config
 conf_settings = getconfig("Settings", DEFAULTS_SETTINGS)
+conf_settings.update(getconfig("Settings", DEFAULTS_EXTRA, False))
 conf_discord = getconfig("Discord", DEFAULTS_DISCORD)
 conf_log_levels = getconfig("LogLevels", DEFAULTS_LOG_LEVELS)
 
@@ -544,7 +544,7 @@ def processevent(line):
                 session.factions[victimfaction] = session.factions.get(victimfaction, 0) + 1
                 total.factions[victimfaction] = total.factions.get(victimfaction, 0) + 1
                 factioncount = f" x{session.factions[victimfaction]}" if conf_settings["ExtendedStats"] else ""
-                bountyfaction = victimfaction if len(victimfaction) <= TRUNC_FACTION+3 else f"{victimfaction[:TRUNC_FACTION].rstrip()}..."
+                bountyfaction = victimfaction if len(victimfaction) <= conf_settings["TruncateNames"]+3 else f"{victimfaction[:conf_settings["TruncateNames"]].rstrip()}..."
                 bountyfaction = f" [{bountyfaction}{factioncount}]" if conf_settings["BountyFaction"] else ""
                 logevent(msg_term=f"{col}Kill{Col.END}{kills_t}: {ship}{killtime}{piratename}{bountyvalue}{bountyfaction}",
                         msg_discord=f"{kills_d}**{ship}{hard}{killtime}**{piratename}{bountyvalue}{bountyfaction}",
@@ -875,7 +875,7 @@ if __name__ == "__main__":
         
         # Open journal from end and watch for new lines
         trackingerror = None
-        cooldown = WARN_COOLDOWN
+        cooldown = conf_settings["WarnCooldown"]
         
         with open(journal_dir / journal_file, mode="r", encoding="utf-8") as file:
             file.seek(0, 2)
@@ -925,8 +925,8 @@ if __name__ == "__main__":
 
                                     # Check time since deployment if no kills yet
                                     sessionmins = int(sessionsecs / 60)
-                                    #debug(f"No kills logged since start of session {sessionmins} ({sessionsecs / 60}) minutes ago [WARN_NOKILLS*60: {WARN_NOKILLS * 60}]")
-                                    if not track.warnednokills and sessionsecs >= (WARN_NOKILLS * 60):
+                                    #debug(f"No kills logged since start of session {sessionmins} ({sessionsecs / 60}) minutes ago [conf_settings["WarnNoKillsInitial"]*60: {conf_settings["WarnNoKillsInitial"] * 60}]")
+                                    if not track.warnednokills and sessionsecs >= (conf_settings["WarnNoKillsInitial"] * 60):
                                         logevent(msg_term=f"No kills logged for {sessionmins} minutes",
                                                 emoji="⚠️", loglevel=conf_log_levels["NoKills"])
                                         track.warnednokills = timemono

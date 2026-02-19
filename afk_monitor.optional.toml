@@ -1,0 +1,16 @@
+# AFK Monitor Optional Config
+# This file contains optional settings that can be used in afk_monitor.toml
+#
+# SETTINGS HERE ARE FOR INFO ONLY - THIS FILE IS NOT LOADED BY AFK MONITOR!
+# 
+# To modify a setting, copy and paste it under [Settings] in afk_monitor.toml
+
+[Settings]
+# RecentFiles specifies number of files to show with --filesect (default: 10)
+RecentFiles = 10
+# TruncateNames shortens names of factions and pirates above this length (default: 30)
+TruncateNames = 30
+# WarnNoKillsInitial is the time in minutes before warning of no kills at session start (default: 5)
+WarnNoKillsInitial = 5
+# WarnCooldown is the time in minutes before repeating kill rate warnings, doubled thereafter (default: 15)
+WarnCooldown = 15
