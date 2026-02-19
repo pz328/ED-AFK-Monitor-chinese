@@ -425,6 +425,13 @@ def per_hour(seconds=0, precision=None):
     else:
         return 0
 
+# Shorten a string
+def truncate(input: str) -> str:
+    if len(input) <= conf_settings["TruncateNames"]+2:
+        return input
+    else:
+        return f"{input[:conf_settings["TruncateNames"]].rstrip()}.."
+
 # Process incoming journal entries
 def processevent(line):
     try:
@@ -534,7 +541,7 @@ def processevent(line):
                     ship = "Bond"
                     track.killtype = "bonds"
 
-                piratename = f" [{j['PilotName_Localised']}]" if "PilotName_Localised" in j and conf_settings["PirateNames"] else ""
+                piratename = f" [{truncate(j['PilotName_Localised'])}]" if "PilotName_Localised" in j and conf_settings["PirateNames"] else ""
                 session.bounties += bountyvalue
                 total.bounties += bountyvalue
                 kills_t = f" x{session.kills}" if conf_settings["ExtendedStats"] else ""
@@ -544,7 +551,7 @@ def processevent(line):
                 session.factions[victimfaction] = session.factions.get(victimfaction, 0) + 1
                 total.factions[victimfaction] = total.factions.get(victimfaction, 0) + 1
                 factioncount = f" x{session.factions[victimfaction]}" if conf_settings["ExtendedStats"] else ""
-                bountyfaction = victimfaction if len(victimfaction) <= conf_settings["TruncateNames"]+3 else f"{victimfaction[:conf_settings["TruncateNames"]].rstrip()}..."
+                bountyfaction = truncate(victimfaction)
                 bountyfaction = f" [{bountyfaction}{factioncount}]" if conf_settings["BountyFaction"] else ""
                 logevent(msg_term=f"{col}Kill{Col.END}{kills_t}: {ship}{killtime}{piratename}{bountyvalue}{bountyfaction}",
                         msg_discord=f"{kills_d}**{ship}{hard}{killtime}**{piratename}{bountyvalue}{bountyfaction}",
