@@ -39,7 +39,7 @@ BAIT_MESSAGES = ["$Pirate_ThreatTooHigh", "$Pirate_NotEnoughCargo", "$Pirate_OnN
 COMBAT_RANKS = ["Harmless", "Mostly Harmless", "Novice", "Competent", "Expert", "Master", "Dangerous", "Deadly", "Elite", "Elite I", "Elite II", "Elite III", "Elite IV", "Elite V"]
 # Config defaults
 DEFAULTS_SETTINGS = {"JournalFolder": "", "UseUTC": False, "DynamicTitle": True, "WarnKillRate": 20, "WarnNoKills": 20, "PirateNames": False, "BountyFaction": False, "BountyValue": False, "ExtendedStats": False, "MinScanLevel": 1}
-DEFAULTS_EXTRA = {"RecentFiles": 10, "TruncateNames": 30, "WarnNoKillsInitial": 5, "WarnCooldown": 15}
+DEFAULTS_EXTRA = {"RecentFiles": 10, "TruncateNames": 30, "WarnNoKillsInitial": 5, "WarnKillRateDelay": 5, "WarnCooldown": 15}
 DEFAULTS_DISCORD = {"WebhookURL": "", "UserID": 0, "PrependCmdrName": False, "ForumChannel": False, "ThreadCmdrNames": False, "Timestamp": True, "Identity": True}
 DEFAULTS_LOG_LEVELS = {"ScanIncoming": 1, "ScanEasy": 1, "ScanHard": 2, "KillEasy": 2, "KillHard": 2, "FighterHull": 2, "FighterDown": 3, "ShipShields": 3, "ShipHull": 3, "Died": 3, "CargoLost": 3, "BaitValueLow": 2, "SecurityScan": 2, "SecurityAttack": 3, "FuelReport": 1, "FuelLow": 2, "FuelCritical": 3, "Missions": 2, "MissionsAll": 3, "Merits": 0, "NoKills": 3, "KillRate": 3, "SummaryKills": 2, "SummaryFaction": 0, "SummaryBounties": 2, "SummaryMerits": 2}
 
@@ -912,8 +912,7 @@ if __name__ == "__main__":
                                     kills_hour = per_hour(sessionsecs / session.kills, 1)
                                     #debug(f"Kills per hour {kills_hour}")
                                     if kills_hour < conf_settings["WarnKillRate"]:
-                                        if not track.warnedkillrate and sessionsecs >= (5 * 60) and (not track.warnednokills or
-                                                timemono - track.warnednokills >= (5 * 60)):
+                                        if not track.warnedkillrate and sessionsecs >= (conf_settings["WarnKillRateDelay"] * 60) and (not track.warnednokills or timemono - track.warnednokills >= (cooldown * 60)):
                                             logevent(msg_term=f"Kill rate of {kills_hour}/h is below {conf_settings["WarnKillRate"]}/h threshold",
                                                     emoji="⚠️", loglevel=conf_log_levels["KillRate"])
                                             track.warnedkillrate = timemono

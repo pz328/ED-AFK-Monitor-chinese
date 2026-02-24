@@ -12,5 +12,7 @@ RecentFiles = 10
 TruncateNames = 30
 # WarnNoKillsInitial is the time in minutes before warning of no kills at session start (default: 5)
 WarnNoKillsInitial = 5
+# WarnKillRateDelay is the time in minutes before warning of low kill rate at session start (default: 5)
+WarnKillRateDelay = 5
 # WarnCooldown is the time in minutes before repeating kill rate warnings, doubled thereafter (default: 15)
 WarnCooldown = 15
