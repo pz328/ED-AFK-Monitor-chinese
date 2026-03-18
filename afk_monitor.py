@@ -38,7 +38,7 @@ BAIT_MESSAGES = ["$Pirate_ThreatTooHigh", "$Pirate_NotEnoughCargo", "$Pirate_OnN
 COMBAT_RANKS = ["Harmless", "Mostly Harmless", "Novice", "Competent", "Expert", "Master", "Dangerous", "Deadly", "Elite", "Elite I", "Elite II", "Elite III", "Elite IV", "Elite V"]
 # Config defaults
 DEFAULTS_SETTINGS = {"JournalFolder": "", "UseUTC": False, "DynamicTitle": True, "WarnKillRate": 20, "WarnNoKills": 20, "PirateNames": False, "BountyFaction": False, "BountyValue": False, "ExtendedStats": False, "MinScanLevel": 1}
-DEFAULTS_EXTRA = {"RecentFiles": 10, "TruncatePirate": 25, "TruncateFaction": 30, "WarnNoKillsInitial": 5, "WarnKillRateDelay": 5, "WarnCooldown": 30, "RecentAverageNum": 30}
+DEFAULTS_EXTRA = {"RecentFiles": 10, "TruncatePirate": 25, "TruncateFaction": 30, "WarnNoKillsInitial": 5, "WarnKillRateDelay": 5, "WarnCooldown": 30, "RecentAverageNum": 10}
 DEFAULTS_DISCORD = {"WebhookURL": "", "UserID": 0, "PrependCmdrName": False, "ForumChannel": False, "ThreadCmdrNames": False, "Timestamp": True, "Identity": True}
 DEFAULTS_LOG_LEVELS = {"ScanIncoming": 1, "ScanEasy": 1, "ScanHard": 2, "KillEasy": 2, "KillHard": 2, "FighterHull": 2, "FighterDown": 3, "ShipShields": 3, "ShipHull": 3, "Died": 3, "CargoLost": 3, "BaitValueLow": 2, "SecurityScan": 2, "SecurityAttack": 3, "FuelReport": 1, "FuelLow": 2, "FuelCritical": 3, "Missions": 2, "MissionsAll": 3, "Merits": 0, "NoKills": 3, "KillRate": 3, "SummaryKills": 2, "SummaryFaction": 0, "SummaryScans": 0, "SummaryBounties": 2, "SummaryMerits": 2}
 
@@ -827,10 +827,6 @@ def summary(stats, logtime=None, session=True):
         
         return f"{count:,} ({hourly_rate}/h | {time_format(average_time)}){recent}"
     
-    # Cargo scans
-    if log_levels["Scans"] > 0 and stats.scansin > 1:
-        stats_out["Scans"] = report(stats.scanstime, stats.scansin, stats.scansrecent)
-    
     # Kills
     if log_levels["Kills"] > 0:
         stats_out["Kills"] = report(stats.killstime, stats.kills, stats.killsrecent)
@@ -844,6 +840,10 @@ def summary(stats, logtime=None, session=True):
         faction_name = max(stats.factions, key=stats.factions.get)
 
         stats_out["Faction"] = f"{faction_kills:,} ({faction_kills_hour}/h | {faction_kills_percent}%) [{faction_name}]"
+
+    # Cargo scans
+    if log_levels["Scans"] > 0 and stats.scansin > 1:
+        stats_out["Scans"] = report(stats.scanstime, stats.scansin, stats.scansrecent)
     
     # Bounties
     if log_levels[kill_type] > 0:

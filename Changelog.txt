@@ -2,8 +2,8 @@
 ED AFK Monitor Changelog
 ========================
 
-v260306
--------
+v260306.1
+---------
 - Elapsed time and mission completions added to stats summaries
 - Incoming cargo scan stats added to summaries (log level 'SummaryScans')
 - Optional settings implemented

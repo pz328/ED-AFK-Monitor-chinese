@@ -18,5 +18,5 @@ WarnNoKillsInitial = 5
 WarnKillRateDelay = 5
 # WarnCooldown is the time in minutes before repeating kill rate warnings, doubled thereafter (default: 30)
 WarnCooldown = 30
-# RecentAverageNum is the number of recent kills/scans to report on in ExtendedStats (default: 30)
-RecentAverageNum = 30
+# RecentAverageNum is the number of recent kills/scans to report on in ExtendedStats (default: 10)
+RecentAverageNum = 10
