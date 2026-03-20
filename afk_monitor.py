@@ -851,7 +851,8 @@ def processevent(line):
             case "Shutdown":
                 logevent(msg_term="Quit to desktop",
                         emoji="🛑", timestamp=logtime, loglevel=2)
-                if __name__ == "__main__": sys.exit()
+                if __name__ == "__main__":
+                    sys.exit()
             case "SupercruiseEntry" | "FSDJump":
                 if j["event"] == "SupercruiseEntry":
                     event = "Supercruise entry in"
@@ -1139,7 +1140,7 @@ if __name__ == "__main__":
         emoji="📕", loglevel=2)
         debug(f"\nTrack: {track.__dict__}")
         
-        msg.clear_status()
+        track.sessionend()
         msg.show_cursor()
         
         if sys.argv[0].count("\\") > 1:
