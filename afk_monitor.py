@@ -6,9 +6,12 @@ import re
 import sys
 import time
 import tomllib
+import traceback
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import urlopen
+
 try:
     from discord_webhook import DiscordWebhook
     discord_enabled = True
@@ -24,7 +27,7 @@ def fallover(message):
 # Internals
 DEBUG_MODE = False
 DISCORD_TEST = False
-VERSION = 260306
+VERSION = 260320
 GITHUB_REPO = "PsiPab/ED-AFK-Monitor"
 DUPE_MAX = 5
 FUEL_LOW = 0.2		# 20%
@@ -37,23 +40,131 @@ SHIPS_HARD = ["typex", "typex_2", "typex_3", "anaconda", "federation_dropship_mk
 BAIT_MESSAGES = ["$Pirate_ThreatTooHigh", "$Pirate_NotEnoughCargo", "$Pirate_OnNoCargoFound"]
 COMBAT_RANKS = ["Harmless", "Mostly Harmless", "Novice", "Competent", "Expert", "Master", "Dangerous", "Deadly", "Elite", "Elite I", "Elite II", "Elite III", "Elite IV", "Elite V"]
 # Config defaults
-DEFAULTS_SETTINGS = {"JournalFolder": "", "UseUTC": False, "DynamicTitle": True, "WarnKillRate": 20, "WarnNoKills": 20, "PirateNames": False, "BountyFaction": False, "BountyValue": False, "ExtendedStats": False, "MinScanLevel": 1}
-DEFAULTS_EXTRA = {"RecentFiles": 10, "TruncatePirate": 25, "TruncateFaction": 30, "WarnNoKillsInitial": 5, "WarnKillRateDelay": 5, "WarnCooldown": 30, "RecentAverageNum": 10}
+DEFAULTS_SETTINGS = {"JournalFolder": "", "UseUTC": False, "LiveStatus": True, "DynamicTitle": True, "WarnKillRate": 20, "WarnNoKills": 20, "PirateNames": False, "BountyFaction": False, "BountyValue": False, "ExtendedStats": False, "MinScanLevel": 1}
+DEFAULTS_EXTRA = {"RecentFiles": 10, "TruncatePirate": 25, "TruncateFaction": 30, "WarnNoKillsInitial": 5, "WarnKillRateDelay": 5, "WarnCooldown": 30, "RecentAverageNum": 10, "StatusPadChar": " ", "StatusColBG": "5;236", "StatusColFG": "5;254", "StatusSafeMargin": 2}
 DEFAULTS_DISCORD = {"WebhookURL": "", "UserID": 0, "PrependCmdrName": False, "ForumChannel": False, "ThreadCmdrNames": False, "Timestamp": True, "Identity": True}
 DEFAULTS_LOG_LEVELS = {"ScanIncoming": 1, "ScanEasy": 1, "ScanHard": 2, "KillEasy": 2, "KillHard": 2, "FighterHull": 2, "FighterDown": 3, "ShipShields": 3, "ShipHull": 3, "Died": 3, "CargoLost": 3, "BaitValueLow": 2, "SecurityScan": 2, "SecurityAttack": 3, "FuelReport": 1, "FuelLow": 2, "FuelCritical": 3, "Missions": 2, "MissionsAll": 3, "Merits": 0, "NoKills": 3, "KillRate": 3, "SummaryKills": 2, "SummaryFaction": 0, "SummaryScans": 0, "SummaryBounties": 2, "SummaryMerits": 2}
 
 class Col:
-    CYAN = "\033[96m"
-    YELL = "\033[93m"
+    CYAN = "\x1b[96m"
+    YELL = "\x1b[93m"
     EASY = "\x1b[38;5;157m"
     HARD = "\x1b[38;5;217m"
     WARN = "\x1b[38;5;215m"
     BAD = "\x1b[38;5;15m\x1b[48;5;1m"
     GOOD = "\x1b[38;5;15m\x1b[48;5;2m"
-    WHITE = "\033[97m"
+    WHITE = "\x1b[97m"
     END = "\x1b[0m"
 
 WARNING = f"{Col.WARN}Warning:{Col.END}"
+
+class StatusLogger:
+    """Logs messages to console, with support for a persistent status line
+    Supports emojis, ANSI colours, padding and truncation based on terminal width
+    Imports: sys, unicodedata, re"""
+    
+    ANSI_CLEAR_LINE =  "\x1b[2K"
+    ANSI_COL_END = "\x1b[0m"
+    ANSI_CURSOR_UP = "\x1b[A"
+    ANSI_HIDE_CURSOR = "\x1b[?25l"
+    ANSI_SHOW_CURSOR = "\x1b[?25h"
+    ANSI_REGEX_STRIP = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+    
+    def __init__(self, clear_cols=False, pad_char="", safe_margin=2):
+        self.endcol = self.ANSI_COL_END if clear_cols else ""
+        self.pad = "" if not pad_char else str(pad_char)
+        self.safe = safe_margin
+        self._stream = sys.stdout
+        self._status = ""
+        self._prev = False
+        self._con_prev = 0
+
+    def _write(self, text):
+        self._stream.write(text)
+        self._stream.flush()
+    
+    def get_columns(self, input: str):
+        """Returns string column width, accounting for ANSI escape sequences and emojis"""
+        
+        length = 0
+        
+        # Strip ANSI sequences
+        input = self.ANSI_REGEX_STRIP.sub("", input)  
+        
+        # Calculate width including emojis
+        for char in input:
+            width = unicodedata.east_asian_width(char)
+            length += 2 if width in ["F", "W"] else 1
+        
+        return length
+    
+    def _clear_lines(self):
+        """Calculate line clears based on lines previous status now occupies"""
+        
+        con_width = os.get_terminal_size().columns
+        prev_width = self.get_columns(self._status)
+        prev_lines = prev_width // con_width
+        clear_lines = self.ANSI_CLEAR_LINE
+        
+        # Clear another line for every wrap
+        for _ in range(prev_lines):
+            clear_lines += f"{self.ANSI_CURSOR_UP}{self.ANSI_CLEAR_LINE}"
+        
+        return clear_lines
+
+    def set_status(self, msg):
+        """Sets/updates a persistent status line"""
+        
+        # Get line clears 
+        clear_lines = self._clear_lines()
+        
+        # Truncate status as needed based on terminal width
+        con_width = os.get_terminal_size().columns
+        msg_width = self.get_columns(msg)
+        output = f"{msg}"
+        msg_width = self.get_columns(msg)
+        
+        if msg_width > (con_width - self.safe):
+            # Shrink status by 1 character until actual width fits within terminal
+            while not self.get_columns(output) <= (con_width - self.safe - 1):
+                output = output[:-1]
+            output = output + ">"
+        else:
+            output = msg + (self.pad * (con_width - msg_width - self.safe))
+
+        self._write(f"{clear_lines}\r{output}{self.endcol}")
+        self._status = output
+        self._prev = True
+        self._con_prev = con_width
+
+    def clear_status(self):
+        if self._prev:
+            # Clear status line
+            self._write(f"{self.ANSI_CLEAR_LINE}\r")
+            self._status = ""
+            self._prev = False
+
+    def log(self, msg):
+        """Outputs a new line, while clearing and repeating status if set"""
+        
+        # Get line clears 
+        clear_lines = self._clear_lines()
+        
+        log_line = str(msg)
+        if self._prev:
+            # Overwrite existing status line with new log + status
+            out = f"{clear_lines}\r{log_line}\n{self._status}{self.endcol}"
+            self._write(out)
+        else:
+            self._write(f"{log_line}\n")
+    
+    def hide_cursor(self):
+        self._write(self.ANSI_HIDE_CURSOR)
+
+    def show_cursor(self):
+        self._write(self.ANSI_SHOW_CURSOR)
+
+msg = StatusLogger()
 
 # Update check
 url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
@@ -68,11 +179,11 @@ except Exception:
 
 # Print header
 title = f"ED AFK Monitor v{VERSION} by CMDR PSIPAB"
-print(f"{Col.CYAN}{"="*len(title)}")
-print(f"{title}")
-print(f"{"="*len(title)}{Col.END}\n")
+msg.log(f"{Col.CYAN}{"="*len(title)}")
+msg.log(f"{title}")
+msg.log(f"{"="*len(title)}{Col.END}\n")
 if VERSION < latest_version:
-    print(f"{Col.YELL}Update v{latest_version} is available!{Col.END}\n{Col.WHITE}Download:{Col.END} https://github.com/{GITHUB_REPO}/releases\n")
+    msg.log(f"{Col.YELL}Update v{latest_version} is available!{Col.END}\n{Col.WHITE}Download:{Col.END} https://github.com/{GITHUB_REPO}/releases\n")
 
 # Load config file
 if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
@@ -118,11 +229,11 @@ def getconfig(category: str, defaults: dict, warn_missing = True) -> dict:
         else:
             this_setting = defaults[setting]
             if warn_missing:
-                print(f"{WARNING} Config '{category}' -> '{setting}' not found (using default: {defaults[setting]})")
+                msg.log(f"{WARNING} Config '{category}' -> '{setting}' not found (using default: {defaults[setting]})")
         
         # Check setting matches type provided in defaults
         if type(this_setting) != type(defaults[setting]):
-            print(f"{WARNING} Config '{category}' -> '{setting}' expected type {type(defaults[setting]).__name__} but got {type(this_setting).__name__} (using default: {defaults[setting]})")
+            msg.log(f"{WARNING} Config '{category}' -> '{setting}' expected type {type(defaults[setting]).__name__} but got {type(this_setting).__name__} (using default: {defaults[setting]})")
             this_setting =  defaults[setting]
             
         settings[setting] = this_setting
@@ -139,7 +250,7 @@ debug_mode = args.debug if args.debug is not None else DEBUG_MODE
 
 def debug(message):
     if debug_mode:
-        print(f"{Col.WHITE}[Debug]{Col.END} {message} [{datetime.strftime(datetime.now(), "%H:%M:%S")}]")
+        msg.log(f"{Col.WHITE}[Debug]{Col.END} {message} [{datetime.strftime(datetime.now(), "%H:%M:%S")}]")
 
 debug(f"Arguments: {args}")
 debug(f"Config: {config}")
@@ -159,6 +270,7 @@ class Stats:
         self.scanstime = 0
         self.scansrecent = []
         self.lastscanutc = 0
+        self.lastscanmono = 0
         self.kills = 0
         self.bounties = 0
         self.factions = {}
@@ -204,13 +316,13 @@ class Tracking:
             self.warnednokills = None
             self.warnedkillrate = None
             self.lastcheck = time.monotonic()
-            updatetitle()
+            update_status()
 
     def sessionend(self):
         if self.deploytime:
             debug(f"Session tracking ended at {self.thiseventtime} ({time_format((self.thiseventtime-self.deploytime).total_seconds())})")
             self.deploytime = None
-            updatetitle(True)
+            update_status(True)
 
 session = Stats()
 total = Stats()
@@ -224,7 +336,7 @@ else:
 if not journal_dir.is_dir():
     fallover(f"Directory {journal_dir} not found")
 
-print(f"{Col.YELL}Journal folder:{Col.END} {journal_dir}")
+msg.log(f"{Col.YELL}Journal folder:{Col.END} {journal_dir}")
 
 # Set journal file
 if not setting_journal_file:
@@ -249,7 +361,7 @@ if not setting_journal_file:
     
     # Journal selector
     if setting_fileselect:
-        print(f"\nLatest journals:")
+        msg.log(f"\nLatest journals:")
 
         # Get commander name from each journal and output list
         commanders = []
@@ -260,17 +372,17 @@ if not setting_journal_file:
                     try:
                         entry = json.loads(line)
                     except json.JSONDecodeError as e:
-                        print(f"[Fileselect] JSON error in {filename}: {e}")
+                        msg.log(f"[Fileselect] JSON error in {filename}: {e}")
                     if entry["event"] == "Commander":
                         commander =  entry["Name"]
                         break
 
             num = f"{i:>{len(str(len(journals)))}}"
-            print(f"{num} | {filename} | CMDR {commander if commander else UNKNOWN}")
+            msg.log(f"{num} | {filename} | CMDR {commander if commander else UNKNOWN}")
             commanders.append(commander)
 
         # Prompt for journal choice
-        print("\nInput journal number to load")
+        msg.log("\nInput journal number to load")
         selection = input("(ENTER for latest or any other input to quit)\n")
         if selection:
             try:
@@ -291,7 +403,7 @@ elif setting_journal_file:
     if not journal_file or not (journal_dir / journal_file).is_file():
         fallover(f"Journal file '{setting_journal_file}' invalid or not found")
 
-print(f"{Col.YELL}Journal file:{Col.END} {journal_file}")
+msg.log(f"{Col.YELL}Journal file:{Col.END} {journal_file}")
 
 # Get commander name if not already known
 if not track.cmdrname:
@@ -305,7 +417,7 @@ if not track.cmdrname:
             
             # If we *still* don't have a commander name wait for it
             if not track.cmdrname:
-                print("Waiting for game load... (Press Ctrl+C to stop)")
+                msg.log("Waiting for game load... (Press Ctrl+C to stop)")
                 file.seek(0, 2)
                 while True:
                     line = file.readline()
@@ -319,11 +431,11 @@ if not track.cmdrname:
                         track.cmdrname = entry["Name"]
                         break
     except json.JSONDecodeError as e:
-        print(f"[CMDR Name] JSON error in {journal_file}: {e}")
+        msg.log(f"[CMDR Name] JSON error in {journal_file}: {e}")
     except(KeyboardInterrupt):
         fallover("Quitting...")
 
-print(f"{Col.YELL}Commander name:{Col.END} {track.cmdrname}")
+msg.log(f"{Col.YELL}Commander name:{Col.END} {track.cmdrname}")
 
 # Check for a config profile if one is set
 config_info = ""
@@ -335,7 +447,7 @@ if profile and not profile in config:
     debug(f"No config settings for '{profile}' found")
     profile = None
 
-print(f"{Col.YELL}Config profile:{Col.END} {profile if profile else "Default"}{config_info}")
+msg.log(f"{Col.YELL}Config profile:{Col.END} {profile if profile else "Default"}{config_info}")
 if profile: debug(f"Profile '{profile}': {config[profile]}")
 
 # Get settings from config
@@ -344,11 +456,18 @@ conf_settings.update(getconfig("Settings", DEFAULTS_EXTRA, False))
 conf_discord = getconfig("Discord", DEFAULTS_DISCORD)
 conf_log_levels = getconfig("LogLevels", DEFAULTS_LOG_LEVELS)
 
+# Configure status line
+status_col = f"\x1b[48;{conf_settings['StatusColBG']}m" if conf_settings["StatusColBG"] else ""
+status_col += f"\x1b[38;{conf_settings['StatusColFG']}m" if conf_settings["StatusColFG"] else ""
+msg.endcol = msg.ANSI_COL_END if status_col else ""
+msg.safe = conf_settings["StatusSafeMargin"]
+msg.pad = conf_settings["StatusPadChar"]
+
 debug(f"Settings: {conf_settings}")
 debug(f"Discord: {conf_discord}")
 debug(f"Log levels: {conf_log_levels}")
 
-print("\nStarting... (Press Ctrl+C to stop)\n")
+msg.log("\nStarting... (Press Ctrl+C to stop)\n")
 
 # Check webhook appears valid before starting
 discord_webhook = args.webhook if args.webhook is not None else conf_discord["WebhookURL"]
@@ -368,7 +487,7 @@ if discord_enabled and re.search(REG_WEBHOOK, discord_webhook):
 elif discord_enabled:
     discord_enabled = False
     discord_test = False
-    print(f"{Col.WHITE}Info:{Col.END} Discord webhook missing or invalid - operating with terminal output only\n")
+    msg.log(f"{Col.WHITE}Info:{Col.END} Discord webhook missing or invalid - operating with terminal output only\n")
 
 # Send a webhook message or (don"t) die trying
 def discordsend(message=""):
@@ -381,9 +500,9 @@ def discordsend(message=""):
                 webhook.thread_id = webhook.id
                 #debug(f"webhook.thread_id: {webhook.thread_id}")
         except Exception as e:
-            print(f"{Col.WHITE}Discord:{Col.END} Webhook send error: {e}")
+            msg.log(f"{Col.WHITE}Discord:{Col.END} Webhook send error: {e}")
     elif discord_enabled and message and discord_test:
-        print(f"{Col.WHITE}DISCORD:{Col.END} {message}")
+        msg.log(f"{Col.WHITE}DISCORD:{Col.END} {message}")
 
 # Log events
 def logevent(msg_term, msg_discord=None, emoji=None, timestamp=None, loglevel=2, event=None):
@@ -400,7 +519,7 @@ def logevent(msg_term, msg_discord=None, emoji=None, timestamp=None, loglevel=2,
     
     # Terminal
     if loglevel > 0 and not discord_test:
-        print(f"[{logtime}]{emoji}{msg_term}")
+        msg.log(f"[{logtime}]{emoji}{msg_term}")
     
     # Discord
     if discord_enabled and loglevel > 1:
@@ -439,7 +558,7 @@ def processevent(line):
     try:
         j = json.loads(line)
     except ValueError:
-        print(f"{Col.WHITE}Warning:{Col.END} Journal parsing error, skipping line")
+        msg.log(f"{Col.WHITE}Warning:{Col.END} Journal parsing error, skipping line")
         return
 
     try:
@@ -468,6 +587,8 @@ def processevent(line):
                             session.scanstime += seconds
                             total.scanstime += seconds
                         session.lastscanutc = logtime
+                        if not track.preloading:
+                            session.lastscanmono = time.monotonic()
                         
                         logevent(msg_term=f"Cargo scan{scansin}{pirate}",
                                     msg_discord=f"**Cargo scan{scansin}**{pirate}",
@@ -572,23 +693,23 @@ def processevent(line):
                         msg_discord=f"{kills_d}**{ship}{hard}{killtime}**{piratename}{bountyvalue}{bountyfaction}",
                         emoji="💥", timestamp=logtime, loglevel=log)
 
-                updatetitle()
+                update_status()
                 
                 # Output stats every 10 kills
                 if session.kills % 10 == 0:
                     summary(session, logtime=logtime)
             case "MissionRedirected" if "Mission_Massacre" in j["Name"]:
                 track.missionredirects += 1
-                msg = "a mission"
+                type = "a mission"
                 missions = f"{track.missionredirects}/{len(track.missionsactive)}"
                 if len(track.missionsactive) != track.missionredirects:
                     log = conf_log_levels["Missions"]
                 else:
                     log = conf_log_levels["MissionsAll"]
-                    msg = "all missions!"
-                logevent(msg_term=f"Completed kills for {msg} ({missions})",
+                    type = "all missions!"
+                logevent(msg_term=f"Completed kills for {type} ({missions})",
                         emoji="✅", timestamp=logtime, loglevel=log)
-                updatetitle()
+                update_status()
             case "ReservoirReplenished":
                 fuelremaining = round((j["FuelMain"] / track.fuelcapacity) * 100)
                 if session.fuellasttime and track.deploytime and logtime > session.fuellasttime:
@@ -745,7 +866,7 @@ def processevent(line):
     except Exception as e:
         event = j["event"] if "event" in j else UNKNOWN
         logtime = datetime.strftime(logtime, "%H:%M:%S") if logtime else UNKNOWN
-        print(f"{Col.WARN}Warning:{Col.END} Process event error for [{event}]: {e} (logtime: {logtime})")
+        msg.log(f"{Col.WARN}Warning:{Col.END} Process event error for [{event}]: {e} (logtime: {logtime})")
         debug(line)
 
 def time_format(seconds: int) -> str:
@@ -773,28 +894,59 @@ def num_format(number: int) -> str:
         else:
             return number
 
-def updatetitle(reset=False):
-    # Title (Windows-only)
-    if os.name=="nt":
-        if conf_settings["DynamicTitle"] and not track.preloading and track.deploytime:
-            timeutc = datetime.now(timezone.utc)
+def update_status(reset=False):
+    """Outputs realtime info to status line and window title"""
+    
+    if conf_settings["LiveStatus"] or conf_settings["DynamicTitle"]:
+        if not track.preloading and track.deploytime:
+            # Time
+            time_utc = datetime.now(timezone.utc)
+            log_time = datetime.now(timezone.utc) if conf_settings["UseUTC"] else datetime.now().astimezone()
+            ts = datetime.strftime(log_time, "%H:%M:%S")
+            
+            # Kills
             if session.kills > 0:
-                kills_hour = per_hour((timeutc - track.deploytime).total_seconds() / session.kills, 1)
-                kills_hour = f"{kills_hour}/h" if session.kills > 19 else f"{kills_hour}*/h"
+                kills_hour = per_hour((time_utc - track.deploytime).total_seconds() / session.kills, 1)
             else:
-                kills_hour = "-/h"
+                kills_hour = "-"
             
             if session.lastkillmono:
-                lastkill = time_format(time.monotonic() - session.lastkillmono)
+                last_kill = time_format(time.monotonic() - session.lastkillmono)
             elif session.kills > 0:
-                lastkill = time_format((timeutc - session.lastkillutc).total_seconds())
+                last_kill = time_format((time_utc - session.lastkillutc).total_seconds())
             else:
-                lastkill = time_format((timeutc - track.deploytime).total_seconds())
+                last_kill = time_format((time_utc - track.deploytime).total_seconds())
             
-            ctypes.windll.kernel32.SetConsoleTitleW(f"💥{kills_hour} ⌚{lastkill} 🎯{track.missionredirects}/{len(track.missionsactive)}")
+            # Scans
+            if session.scansin > 0:
+                scans_hour = per_hour((time_utc - track.deploytime).total_seconds() / session.scansin, 1)
+            else:
+                scans_hour = "-"
+            
+            if session.lastscanmono:
+                lastscan = time_format(time.monotonic() - session.lastscanmono)
+            elif session.scansin > 0:
+                lastscan = time_format((time_utc - session.lastscanutc).total_seconds())
+            else:
+                lastscan = time_format((time_utc - track.deploytime).total_seconds())
+
+            # Status bar
+            s_kills = f"{kills_hour}/h (+{last_kill}) [x{session.kills}]"
+            s_scans = f"{scans_hour}/h (+{lastscan}) [x{session.scansin}]"
+            s_missions = f"{track.missionredirects}/{len(track.missionsactive)}"
+            
+            if conf_settings["LiveStatus"]:
+                msg.set_status(f"{status_col}[{ts}]💥 {s_kills:<23} | 📦 {s_scans:<23} | 🎯 {s_missions} ")
+
+            # Window title (Windows only)
+            if conf_settings["DynamicTitle"] and os.name=="nt":
+                ctypes.windll.kernel32.SetConsoleTitleW(f"💥{kills_hour}/h ⌚{last_kill} 🎯 {s_missions}")
+            
         elif reset == True:
-            ctypes.windll.kernel32.SetConsoleTitleW(f"ED AFK Monitor v{VERSION}")
-            #debug("Title update")
+            if conf_settings["DynamicTitle"]:
+                ctypes.windll.kernel32.SetConsoleTitleW(f"ED AFK Monitor v{VERSION}")
+            if conf_settings["LiveStatus"]:
+                msg.clear_status()
 
 # Output stats for kills, bounties and merits
 def summary(stats, logtime=None, session=True):
@@ -881,6 +1033,8 @@ def summary(stats, logtime=None, session=True):
 
 if __name__ == "__main__":
     try:
+        msg.hide_cursor()
+        
         # Journal preloading
         if track.preloading:
             with open(journal_dir / journal_file, mode="r", encoding="utf-8") as file:
@@ -892,7 +1046,7 @@ if __name__ == "__main__":
                 session.reset()
                 logevent(msg_term=f"Session stats reset",
                         emoji="🔄", loglevel=1)
-            updatetitle(True)
+            update_status(True)
 
         # Send Discord startup
         update_notice = f"\n:arrow_up: Update **[v{latest_version}](https://github.com/{GITHUB_REPO}/releases)** available!" if VERSION < latest_version else ""
@@ -968,11 +1122,11 @@ if __name__ == "__main__":
                                         track.warnednokills = timemono
                     except Exception as e:
                         if repr(e) != trackingerror:
-                            print(f"{Col.WARN}Warning:{Col.END} Kill rate tracking error: {e} [{datetime.strftime(datetime.now(), "%H:%M:%S")}])")
+                            msg.log(f"{Col.WARN}Warning:{Col.END} Kill rate tracking error: {e} [{datetime.strftime(datetime.now(), "%H:%M:%S")}])")
                             trackingerror = repr(e)
                     
                     time.sleep(1)
-                    updatetitle()
+                    update_status()
                     continue
 
                 processevent(line)
@@ -985,9 +1139,13 @@ if __name__ == "__main__":
         emoji="📕", loglevel=2)
         debug(f"\nTrack: {track.__dict__}")
         
+        msg.clear_status()
+        msg.show_cursor()
+        
         if sys.argv[0].count("\\") > 1:
             input("\nPress ENTER to exit")	# This is *still* horrible
             sys.exit()
     except Exception as e:
-        print(f"{Col.WARN}Warning:{Col.END} Something went wrong: {e} (journal line #{track.lines})")
+        msg.log(f"{Col.WARN}Warning:{Col.END} Something went wrong: {e} (journal line #{track.lines})")
+        traceback.print_tb(e.__traceback__)
         input("Press ENTER to exit")

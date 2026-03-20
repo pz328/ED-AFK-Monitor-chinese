@@ -12,7 +12,9 @@
 JournalFolder = ''
 # UseUTC = false (default) uses local timezone, set true for UTC (in-game time)
 UseUTC = false
-# DynamicTitle uses the window title to display some info (Default: true, only works on Windows OS)
+# LiveStatus displays a persistent status line with realtime stats (Default: true)
+LiveStatus = true
+# DynamicTitle uses the window title to display some realtime stats (Default: true, only works on Windows OS)
 DynamicTitle = true
 # WarnKillRate sends a warning if kills/hour drop below set amount (Default: 20, log level 'KillRate')
 WarnKillRate = 20

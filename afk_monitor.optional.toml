@@ -20,3 +20,18 @@ WarnKillRateDelay = 5
 WarnCooldown = 30
 # RecentAverageNum is the number of recent kills/scans to report on in ExtendedStats (default: 10)
 RecentAverageNum = 10
+
+# =====================
+# Status line
+# =====================
+# Default status line uses a full-width, near-white on dark-gray line
+
+# StatusPadChar specifies a character for padding the width of the terminal (default: " ", use "" for no padding)
+StatusPadChar = " "
+# StatusColBG/FG specify ANSI colour codes for the background and foreground colours of the status line
+# Standard ANSI codes are supported, allowing for 256 colour or full RGB depending on your terminal
+# For RGB use "2;R;G;B", where R/G/B are numbers 0-255, e.g: "2;255;0;0" for bright red
+StatusColBG = "5;236"   # Default: "5;236", use "" to disable and use terminal default
+StatusColFG = "5;254"   # Default: "5;254", use "" to disable and use terminal default
+# StatusSafeMargin is a safety margin in characters to leave at the end of the status line (Default: 2)
+StatusSafeMargin = 2
