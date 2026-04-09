@@ -24,20 +24,20 @@ Real-time monitoring of Elite Dangerous journal files for logging AFK massacre f
     - [I ejected cargo manually and got notified](#i-ejected-cargo-manually-and-got-notified)
     - [There are garbled characters in the terminal output](#there-are-garbled-characters-in-the-terminal-output)
 
-## Events and information logged
-- Ship scans (by player or by NPC pilot in fighter)
-- Bounties (i.e. kills) incl. faction and time since previous
-- Kill/bounty/merit summary and average rates every 10 kills
-- Mission kills completed and missions remaining
-- Ship shields down/restored
-- Ship/fighter hull damage
-- Ship/fighter destroyed
-- Pirates not engaging due to low cargo value
-- Cargo stolen
-- Fuel reserves low/critical
-- Warnings about hostile security forces
-- Low kill rate per hour warnings
-- Journal inactivity detection (e.g. due to game or network issues)
+## 监控事件与记录信息
+舰船扫描（由玩家或由舰载战斗机 NPC 驾驶员完成）
+赏金记录（击杀记录，包含所属派系及与上次击杀的时间间隔）
+统计摘要：每10次击杀汇总一次击杀/赏金/功勋数据及平均效率（每小时击杀率）
+任务状态：已完成的任务击杀数及剩余任务数
+护盾监控：护盾失效或已恢复
+损毁监控：母舰/战斗机舰体受损百分比
+坠毁监控：母舰/战斗机被摧毁记录
+海盗行为：因货物价值过低而未交火的海盗提醒
+货物损失：货物被海盗偷取通知
+燃料预警：燃料储备过低或进入危险状态
+安全警告：遭到安全部队（警察）攻击的警告
+效率预警：每小时击杀海盗率过低的提醒
+日志活性检测：检测游戏日志是否停止更新（例如因游戏崩溃或网络掉线引起）
 
 ...plus some other minor things
 
