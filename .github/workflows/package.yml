@@ -5,8 +5,9 @@ on:
     tags:
       - 'v*' # 当你推送以 v 开头的标签（如 v1.0）时触发
   workflow_dispatch: # 允许你在 Actions 页面手动点击运行
+
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # 解决 Node.js 20 弃用警告
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 jobs:
   build:
     runs-on: windows-latest # 在 Windows 环境下运行打包
@@ -18,7 +19,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10' # 换成你项目用的 Python 版本
+        python-version: '3.12' # 换成你项目用的 Python 版本
 
     - name: Install dependencies
       run: |
