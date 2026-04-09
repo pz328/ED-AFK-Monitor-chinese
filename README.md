@@ -37,7 +37,7 @@ Real-time monitoring of Elite Dangerous journal files for logging AFK massacre f
 - 效率预警：每小时击杀海盗率过低的提醒
 - 日志活性检测：检测游戏日志是否停止更新（例如因游戏崩溃或网络掉线引起）
 
-...plus some other minor things
+……以及其他一些小事。
 
 ## 开始使用
 
