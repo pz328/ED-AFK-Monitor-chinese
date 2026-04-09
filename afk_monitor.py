@@ -179,9 +179,9 @@ except Exception:
 
 # Print header
 title = f"ED AFK Monitor v{VERSION} by CMDR PSIPAB"
-msg.log(f"{Col.CYAN}{"="*len(title)}")
+msg.log(f"{Col.CYAN}{'='*len(title)}")
 msg.log(f"{title}")
-msg.log(f"{"="*len(title)}{Col.END}\n")
+msg.log(f"{'='*len(title)}{Col.END}\n")
 if VERSION < latest_version:
     msg.log(f"{Col.YELL}Update v{latest_version} is available!{Col.END}\n{Col.WHITE}Download:{Col.END} https://github.com/{GITHUB_REPO}/releases\n")
 

@@ -13,8 +13,6 @@ Real-time monitoring of Elite Dangerous journal files for logging AFK massacre f
   - [说明目录](#说明目录)
   - [监控事件与记录信息](#监控事件与记录信息)
   - [开始使用](#开始使用)
-    - [EXE版本](#EXE 版本)
-    - [Python 版本](#Python 版本)
   - [配置日志级别](#配置日志级别)
   - [常见问题](#常见问题)
     - [I get some output to terminal then nothing else](#i-get-some-output-to-terminal-then-nothing-else)
